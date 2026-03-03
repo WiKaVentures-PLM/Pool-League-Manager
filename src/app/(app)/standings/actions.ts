@@ -2,8 +2,9 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { checkOrgWriteAccess } from '@/lib/subscription/server-gate';
 
-async function getOrgId() {
+async function getAuthWithRole() {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -17,17 +18,28 @@ async function getOrgId() {
 
   const { data: membership } = await supabase
     .from('memberships')
-    .select('org_id')
+    .select('org_id, role')
     .eq('profile_id', profile.id)
     .single();
 
-  return membership?.org_id || null;
+  if (!membership) return null;
+
+  return { orgId: membership.org_id, role: membership.role, profileId: profile.id };
+}
+
+function requireAdmin(auth: { role: string } | null): string | null {
+  if (!auth) return 'Not authenticated';
+  if (auth.role !== 'admin') return 'Admin role required';
+  return null;
 }
 
 export async function addStandingsAdjustment(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const orgId = await getOrgId();
-  if (!orgId) return { error: 'Not authenticated' };
+  const auth = await getAuthWithRole();
+  const err = requireAdmin(auth);
+  if (err || !auth) return { error: err || 'Not authenticated' };
+  const writeErr = await checkOrgWriteAccess(auth.orgId);
+  if (writeErr) return { error: writeErr };
 
   const seasonId = formData.get('season_id') as string;
   const teamId = formData.get('team_id') as string;
@@ -42,7 +54,7 @@ export async function addStandingsAdjustment(formData: FormData) {
   const { error } = await supabase
     .from('standings_adjustments')
     .insert({
-      org_id: orgId,
+      org_id: auth.orgId,
       season_id: seasonId,
       team_id: teamId,
       wins_adj: winsAdj,
@@ -60,8 +72,11 @@ export async function addStandingsAdjustment(formData: FormData) {
 
 export async function deleteStandingsAdjustment(formData: FormData) {
   const supabase = createServerSupabaseClient();
-  const orgId = await getOrgId();
-  if (!orgId) return { error: 'Not authenticated' };
+  const auth = await getAuthWithRole();
+  const err = requireAdmin(auth);
+  if (err || !auth) return { error: err || 'Not authenticated' };
+  const writeErr = await checkOrgWriteAccess(auth.orgId);
+  if (writeErr) return { error: writeErr };
 
   const id = formData.get('id') as string;
   if (!id) return { error: 'Adjustment ID is required' };
@@ -70,7 +85,7 @@ export async function deleteStandingsAdjustment(formData: FormData) {
     .from('standings_adjustments')
     .delete()
     .eq('id', id)
-    .eq('org_id', orgId);
+    .eq('org_id', auth.orgId);
 
   if (error) return { error: error.message };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button, Badge } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import type { MatchupInput } from '@/lib/validation/score-validation';
@@ -32,10 +32,20 @@ export function ScoresheetScanner({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleFile(file: File) {
     setScanning(true);
     setConfidence(null);
     setNotes(null);
+    // Revoke previous blob URL before creating new one
+    if (preview) URL.revokeObjectURL(preview);
     setPreview(URL.createObjectURL(file));
 
     const formData = new FormData();
@@ -78,6 +88,7 @@ export function ScoresheetScanner({
   }
 
   function clearPreview() {
+    if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
     setConfidence(null);
     setNotes(null);

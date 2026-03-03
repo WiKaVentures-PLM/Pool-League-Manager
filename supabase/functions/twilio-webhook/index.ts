@@ -8,8 +8,68 @@ function twimlResponse(message: string): Response {
   });
 }
 
+/**
+ * Normalize phone to E.164 format (+1XXXXXXXXXX for US numbers).
+ * Strips everything except digits, then prepends +1 if needed.
+ */
 function normalizePhone(phone: string): string {
-  return phone.replace(/[^\d+]/g, '');
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  // Already has country code or international
+  if (phone.startsWith('+')) return `+${digits}`;
+  return `+${digits}`;
+}
+
+/**
+ * Encode a Uint8Array to base64 without using spread operator
+ * (spread crashes on large arrays due to max arguments limit).
+ */
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
+    }
+  }
+  return btoa(binary);
+}
+
+/**
+ * Verify Twilio webhook signature (HMAC-SHA1).
+ * See: https://www.twilio.com/docs/usage/security#validating-requests
+ */
+async function verifyTwilioSignature(
+  req: Request,
+  params: URLSearchParams,
+  authToken: string,
+): Promise<boolean> {
+  const signature = req.headers.get('x-twilio-signature');
+  if (!signature) return false;
+
+  // Build the data string: URL + sorted params
+  const url = Deno.env.get('TWILIO_WEBHOOK_URL') || req.url;
+  const sortedKeys = Array.from(params.keys()).sort();
+  let dataString = url;
+  for (const key of sortedKeys) {
+    dataString += key + params.get(key);
+  }
+
+  // HMAC-SHA1
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(authToken),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(dataString));
+  const expected = uint8ToBase64(new Uint8Array(sig));
+
+  return signature === expected;
 }
 
 Deno.serve(async (req: Request) => {
@@ -27,9 +87,22 @@ Deno.serve(async (req: Request) => {
   const mediaUrl0 = formData.get('MediaUrl0') as string | null;
   const mediaType0 = formData.get('MediaContentType0') as string | null;
 
-  // TODO: Verify Twilio signature (HMAC-SHA1) for production
-  // const twilioSig = req.headers.get('x-twilio-signature');
-  // const authToken = Deno.env.get('TWILIO_AUTH_TOKEN')!;
+  // Verify Twilio signature — MANDATORY
+  const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+  if (!authToken) {
+    console.error('TWILIO_AUTH_TOKEN not configured — rejecting request');
+    return new Response('Server misconfigured', { status: 500 });
+  }
+
+  const params = new URLSearchParams();
+  for (const [key, value] of formData.entries()) {
+    params.set(key, value as string);
+  }
+  const valid = await verifyTwilioSignature(req, params, authToken);
+  if (!valid) {
+    console.error('Twilio signature verification failed');
+    return new Response('Invalid signature', { status: 403 });
+  }
 
   const normalized = normalizePhone(fromPhone);
 
@@ -67,6 +140,41 @@ Deno.serve(async (req: Request) => {
       error_message: 'No organization membership found',
     });
     return twimlResponse('Your account is not linked to any league. Contact your league admin.');
+  }
+
+  // 2b. Check subscription tier supports SMS submission
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('subscription_tier, subscription_status')
+    .eq('id', membership.org_id)
+    .single();
+
+  // Tiers that support SMS: trial, pro, premium (basic does NOT)
+  const SMS_TIERS = ['trial', 'pro', 'premium'];
+  if (!org || !SMS_TIERS.includes(org.subscription_tier || '')) {
+    await supabase.from('sms_pending_scores').insert({
+      org_id: membership.org_id,
+      from_phone: fromPhone,
+      body,
+      media_url: mediaUrl0,
+      status: 'failed',
+      error_message: 'SMS submission not available on current plan',
+    });
+    return twimlResponse('SMS score submission is not available on your league\'s current plan. Ask your admin to upgrade.');
+  }
+
+  // 2c. Check subscription status (block if past_due/canceled/expired)
+  const READ_ONLY_STATUSES = ['past_due', 'canceled', 'expired'];
+  if (READ_ONLY_STATUSES.includes(org.subscription_status || '')) {
+    await supabase.from('sms_pending_scores').insert({
+      org_id: membership.org_id,
+      from_phone: fromPhone,
+      body,
+      media_url: mediaUrl0,
+      status: 'failed',
+      error_message: 'Subscription is inactive',
+    });
+    return twimlResponse('Your league\'s subscription is inactive. Contact your league admin.');
   }
 
   // 3. Find active season
@@ -111,7 +219,6 @@ Deno.serve(async (req: Request) => {
   }
 
   // 5. Find the most recent unfinished match for this team
-  // Get schedule entries for this team that don't have a match yet
   const { data: scheduleEntries } = await supabase
     .from('schedule')
     .select('*')
@@ -172,19 +279,18 @@ Deno.serve(async (req: Request) => {
 
   // 7. Download image from Twilio
   const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') || '';
-  const authToken = Deno.env.get('TWILIO_AUTH_TOKEN') || '';
 
   let imageBase64: string;
   try {
     const imageRes = await fetch(mediaUrl0, {
       headers: {
-        'Authorization': 'Basic ' + btoa(`${accountSid}:${authToken}`),
+        'Authorization': 'Basic ' + uint8ToBase64(new TextEncoder().encode(`${accountSid}:${authToken}`)),
       },
     });
     if (!imageRes.ok) throw new Error(`Failed to fetch image: ${imageRes.status}`);
     const imageBuffer = await imageRes.arrayBuffer();
     const bytes = new Uint8Array(imageBuffer);
-    imageBase64 = btoa(String.fromCharCode(...bytes));
+    imageBase64 = uint8ToBase64(bytes);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     await supabase.from('sms_pending_scores').insert({
@@ -214,6 +320,20 @@ Deno.serve(async (req: Request) => {
     supabase.from('teams').select('name').eq('id', targetSchedule.home_team_id).single(),
     supabase.from('teams').select('name').eq('id', targetSchedule.away_team_id).single(),
   ]);
+
+  if (homeTeamRes.error || awayTeamRes.error || !homeTeamRes.data || !awayTeamRes.data) {
+    await supabase.from('sms_pending_scores').insert({
+      org_id: membership.org_id,
+      from_phone: fromPhone,
+      body,
+      media_url: mediaUrl0,
+      team_id: team.id,
+      schedule_id: targetSchedule.id,
+      status: 'failed',
+      error_message: 'Could not load team data for this match',
+    });
+    return twimlResponse('Sorry, we could not find the teams for your match. Please contact your admin.');
+  }
 
   // Get league settings
   const { data: settings } = await supabase
@@ -248,7 +368,7 @@ Deno.serve(async (req: Request) => {
           content: [
             {
               type: 'image',
-              source: { type: 'base64', media_type: mediaType0, data: imageBase64 },
+              source: { type: 'base64', media_type: mediaType0 || 'image/jpeg', data: imageBase64 },
             },
             {
               type: 'text',
@@ -277,7 +397,7 @@ Player names MUST match roster names exactly. Return exactly ${matchesPerNight} 
       media_url: mediaUrl0,
       team_id: team.id,
       schedule_id: targetSchedule.id,
-      status: 'pending',
+      status: 'failed',
       error_message: `OCR parsing failed: ${msg}`,
     });
     return twimlResponse('We received your scoresheet but had trouble reading it. An admin will review it shortly.');
@@ -316,7 +436,8 @@ Player names MUST match roster names exactly. Return exactly ${matchesPerNight} 
       smsRecord.status = 'pending';
       smsRecord.parsed_data = { ...parsedResult, rpc_error: rpcError.message };
       await supabase.from('sms_pending_scores').insert(smsRecord);
-      return twimlResponse(`We read your scoresheet but hit an issue: ${rpcError.message}. An admin will review.`);
+      console.error('RPC submit_scores error:', rpcError.message);
+      return twimlResponse('We read your scoresheet but hit a technical issue saving the scores. An admin will review.');
     }
 
     const status = (rpcResult as { status: string }).status;

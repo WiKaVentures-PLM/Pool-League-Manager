@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrg } from '@/contexts/OrgContext';
 import { useToast } from '@/components/ui/Toast';
@@ -28,11 +28,11 @@ export default function SettingsPage() {
   const [playDays, setPlayDays] = useState<number[]>(settings?.play_days || [2]);
 
   // Sync play_days when settings load
-  const [initialized, setInitialized] = useState(false);
-  if (settings && !initialized) {
-    setPlayDays(settings.play_days || [2]);
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (settings?.play_days) {
+      setPlayDays(settings.play_days);
+    }
+  }, [settings?.play_days]);
 
   if (authLoading || orgLoading) {
     return (

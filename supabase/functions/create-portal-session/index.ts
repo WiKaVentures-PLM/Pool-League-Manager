@@ -8,30 +8,12 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
-// Map plan + interval to Stripe Price IDs
-const PRICE_MAP: Record<string, Record<string, string>> = {
-  basic: {
-    monthly: 'price_1Suf0HDidS2jVuhadtJLgnLX',
-    annual: 'price_1Suf0HDidS2jVuhaYZ3GEQzW',
-  },
-  pro: {
-    monthly: 'price_1SufOZDidS2jVuha7RkjyRXi',
-    annual: 'price_1SufOZDidS2jVuhakiQNABxz',
-  },
-  premium: {
-    monthly: 'price_1SufPkDidS2jVuhatY2mAZT1',
-    annual: 'price_1SufPkDidS2jVuham4wwGraF',
-  },
-};
-
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
-    // Verify the JWT from Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Missing authorization header');
 
@@ -58,42 +40,15 @@ Deno.serve(async (req: Request) => {
 
     const { data: org } = await supabase
       .from('organizations')
-      .select('*')
+      .select('stripe_customer_id')
       .eq('id', membership.org_id)
       .single();
-    if (!org) throw new Error('Organization not found');
+    if (!org?.stripe_customer_id) throw new Error('No billing account found. Please subscribe first.');
 
-    // Parse request body
-    const { plan, interval } = await req.json();
-    if (!plan || !interval) throw new Error('Missing plan or interval');
-
-    const priceId = PRICE_MAP[plan]?.[interval];
-    if (!priceId) throw new Error('Invalid plan or interval');
-
-    // Get or create Stripe customer
-    let customerId = org.stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { org_id: org.id, org_name: org.name },
-      });
-      customerId = customer.id;
-
-      await supabase
-        .from('organizations')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', org.id);
-    }
-
-    // Create Checkout Session
     const origin = req.headers.get('origin') || 'https://pool-league-manager.com';
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/settings?billing=success`,
-      cancel_url: `${origin}/settings?billing=canceled`,
-      metadata: { org_id: org.id },
+    const session = await stripe.billingPortal.sessions.create({
+      customer: org.stripe_customer_id,
+      return_url: `${origin}/settings`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
