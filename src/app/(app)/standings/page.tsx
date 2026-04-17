@@ -129,34 +129,38 @@ export default function StandingsPage() {
               <p className="text-slate-500">No teams in this season yet.</p>
             </div>
           ) : (
-            <Table>
-              <Thead>
-                <tr>
-                  <Th className="w-12">#</Th>
-                  <Th>Team</Th>
-                  <Th className="text-right">W</Th>
-                  <Th className="text-right">L</Th>
-                  <Th className="text-right">Win%</Th>
-                  <Th className="text-right">GW</Th>
-                  <Th className="text-right">GL</Th>
-                  <Th className="text-right">Game%</Th>
-                </tr>
-              </Thead>
-              <tbody>
-                {standings.map(row => (
-                  <Tr key={row.teamId}>
-                    <Td className="font-bold text-slate-500">{row.rank}</Td>
-                    <Td className="font-medium">{row.teamName}</Td>
-                    <Td className="text-right">{row.wins}</Td>
-                    <Td className="text-right">{row.losses}</Td>
-                    <Td className="text-right">{(row.matchPct * 100).toFixed(1)}%</Td>
-                    <Td className="text-right">{row.gamesWon}</Td>
-                    <Td className="text-right">{row.gamesLost}</Td>
-                    <Td className="text-right">{(row.gamePct * 100).toFixed(1)}%</Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="min-w-[480px] px-4 sm:px-0">
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th className="w-12">#</Th>
+                      <Th>Team</Th>
+                      <Th className="text-right">W</Th>
+                      <Th className="text-right">L</Th>
+                      <Th className="text-right">Win%</Th>
+                      <Th className="text-right">GW</Th>
+                      <Th className="text-right">GL</Th>
+                      <Th className="text-right">Game%</Th>
+                    </tr>
+                  </Thead>
+                  <tbody>
+                    {standings.map(row => (
+                      <Tr key={row.teamId}>
+                        <Td className="font-bold text-slate-500">{row.rank}</Td>
+                        <Td className="font-medium">{row.teamName}</Td>
+                        <Td className="text-right">{row.wins}</Td>
+                        <Td className="text-right">{row.losses}</Td>
+                        <Td className="text-right">{(row.matchPct * 100).toFixed(1)}%</Td>
+                        <Td className="text-right">{row.gamesWon}</Td>
+                        <Td className="text-right">{row.gamesLost}</Td>
+                        <Td className="text-right">{(row.gamePct * 100).toFixed(1)}%</Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            </div>
           )}
         </CardBody>
       </Card>

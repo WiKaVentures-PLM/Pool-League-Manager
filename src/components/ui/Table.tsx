@@ -8,7 +8,7 @@ interface TableProps {
 export function Table({ children, className }: TableProps) {
   return (
     <div className={cn('overflow-x-auto', className)}>
-      <table className="w-full text-sm">{children}</table>
+      <table className="w-full min-w-[520px] text-sm">{children}</table>
     </div>
   );
 }

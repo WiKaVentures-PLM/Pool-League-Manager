@@ -131,43 +131,47 @@ export default function TeamsPage() {
               {isAdmin && 'Click "Add Team" to create one.'}
             </p>
           ) : (
-            <Table>
-              <Thead>
-                <tr>
-                  <Th>Team</Th>
-                  <Th>Venue</Th>
-                  <Th>Players</Th>
-                  {isAdmin && <Th className="w-20">Actions</Th>}
-                </tr>
-              </Thead>
-              <tbody>
-                {teams.map(team => (
-                  <Tr key={team.id}>
-                    <Td>
-                      <Link
-                        href={`/teams/${team.id}`}
-                        className="font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
-                      >
-                        {team.name}
-                        <ChevronRight className="w-4 h-4" />
-                      </Link>
-                    </Td>
-                    <Td className="text-slate-500">{team.venue || '—'}</Td>
-                    <Td>{team.player_count}</Td>
-                    {isAdmin && (
-                      <Td>
-                        <button
-                          onClick={() => handleDelete(team)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-slate-100"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </Td>
-                    )}
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="min-w-[360px] px-4 sm:px-0">
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th>Team</Th>
+                      <Th>Venue</Th>
+                      <Th>Players</Th>
+                      {isAdmin && <Th className="w-20">Actions</Th>}
+                    </tr>
+                  </Thead>
+                  <tbody>
+                    {teams.map(team => (
+                      <Tr key={team.id}>
+                        <Td>
+                          <Link
+                            href={`/teams/${team.id}`}
+                            className="font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                          >
+                            {team.name}
+                            <ChevronRight className="w-4 h-4" />
+                          </Link>
+                        </Td>
+                        <Td className="text-slate-500">{team.venue || '—'}</Td>
+                        <Td>{team.player_count}</Td>
+                        {isAdmin && (
+                          <Td>
+                            <button
+                              onClick={() => handleDelete(team)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-slate-100"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </Td>
+                        )}
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            </div>
           )}
         </CardBody>
       </Card>

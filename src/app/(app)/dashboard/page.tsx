@@ -2,10 +2,11 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrg } from '@/contexts/OrgContext';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
 
 export default function DashboardPage() {
   const { profile, organization, membership, loading: authLoading } = useAuth();
-  const { currentSeason, loading: orgLoading } = useOrg();
+  const { currentSeason, allSeasons, loading: orgLoading } = useOrg();
 
   if (authLoading || orgLoading) {
     return (
@@ -13,6 +14,11 @@ export default function DashboardPage() {
         <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
+  }
+
+  // New admin with no seasons → show onboarding wizard
+  if (membership?.role === 'admin' && allSeasons.length === 0) {
+    return <OnboardingWizard />;
   }
 
   return (
@@ -42,8 +48,8 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-8 bg-white rounded-xl shadow-sm border p-8 text-center text-slate-500">
-        <p className="text-lg">Welcome to your new league!</p>
-        <p className="mt-2">Start by adding teams in the Teams tab, then generate a schedule.</p>
+        <p className="text-lg">Welcome to your league!</p>
+        <p className="mt-2">Use the sidebar to manage teams, view the schedule, and track standings.</p>
       </div>
     </div>
   );

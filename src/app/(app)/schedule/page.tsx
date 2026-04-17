@@ -145,35 +145,35 @@ export default function SchedulePage() {
                   {week.entries.map(entry => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm"
+                      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 px-3 bg-slate-50 rounded-lg text-sm"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                         {entry.is_bye ? (
                           <>
-                            <span className="font-medium text-slate-700">
+                            <span className="font-medium text-slate-700 truncate">
                               {teams.get(entry.home_team_id) || entry.home_team_id}
                             </span>
                             <Badge variant="default">BYE</Badge>
                           </>
                         ) : (
                           <>
-                            <span className="font-medium text-slate-700">
+                            <span className="font-medium text-slate-700 truncate max-w-[130px] sm:max-w-none">
                               {teams.get(entry.home_team_id) || entry.home_team_id}
                             </span>
-                            <span className="text-slate-400">vs</span>
-                            <span className="font-medium text-slate-700">
+                            <span className="text-slate-400 shrink-0">vs</span>
+                            <span className="font-medium text-slate-700 truncate max-w-[130px] sm:max-w-none">
                               {teams.get(entry.away_team_id) || entry.away_team_id}
                             </span>
                           </>
                         )}
                         {entry.is_position_night && entry.position_home && entry.position_away && (
-                          <span className="text-xs text-amber-600">
+                          <span className="text-xs text-amber-600 shrink-0">
                             (#{entry.position_home} vs #{entry.position_away})
                           </span>
                         )}
                       </div>
                       {entry.venue && (
-                        <span className="text-xs text-slate-500">@ {entry.venue}</span>
+                        <span className="text-xs text-slate-500 shrink-0">@ {entry.venue}</span>
                       )}
                     </div>
                   ))}

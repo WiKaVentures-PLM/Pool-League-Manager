@@ -1,56 +1,103 @@
-type Tier = 'trial' | 'basic' | 'pro' | 'premium';
+// Canonical tier list — must match DB subscription_tier values
+export type Tier = 'trial' | 'free' | 'starter' | 'pro' | 'basic' | 'premium';
 
 interface TierLimits {
   maxTeams: number;
+  maxLeagues: number; // -1 = unlimited
   maxSeasonsHistory: number; // 0 = current only, -1 = unlimited
   hasPlayerStats: boolean;
   hasPhotoUpload: boolean;
   hasHallOfFame: boolean;
   hasHeadToHead: boolean;
   hasSmsSubmission: boolean;
+  hasMmsSubmission: boolean;
   hasOcrScanning: boolean;
+  hasCustomBranding: boolean;
 }
 
 const TIER_LIMITS: Record<Tier, TierLimits> = {
+  // 14-day full-featured trial (all features, becomes free on expiry)
   trial: {
     maxTeams: 20,
+    maxLeagues: 1,
     maxSeasonsHistory: -1,
     hasPlayerStats: true,
     hasPhotoUpload: true,
     hasHallOfFame: true,
     hasHeadToHead: true,
     hasSmsSubmission: true,
+    hasMmsSubmission: true,
     hasOcrScanning: true,
+    hasCustomBranding: false,
   },
-  basic: {
+  // Free tier — $0/mo
+  free: {
     maxTeams: 10,
+    maxLeagues: 1,
     maxSeasonsHistory: 0,
     hasPlayerStats: false,
     hasPhotoUpload: false,
     hasHallOfFame: false,
     hasHeadToHead: false,
     hasSmsSubmission: false,
-    hasOcrScanning: true,
+    hasMmsSubmission: false,
+    hasOcrScanning: false,
+    hasCustomBranding: false,
   },
-  pro: {
-    maxTeams: 20,
+  // Starter tier — $19/mo
+  starter: {
+    maxTeams: Infinity,
+    maxLeagues: 1,
     maxSeasonsHistory: 3,
     hasPlayerStats: true,
     hasPhotoUpload: true,
     hasHallOfFame: false,
     hasHeadToHead: false,
     hasSmsSubmission: true,
+    hasMmsSubmission: false,
     hasOcrScanning: true,
+    hasCustomBranding: false,
   },
-  premium: {
+  // Pro tier — $39/mo (multi-league, MMS, branding)
+  pro: {
     maxTeams: Infinity,
+    maxLeagues: -1,
     maxSeasonsHistory: -1,
     hasPlayerStats: true,
     hasPhotoUpload: true,
     hasHallOfFame: true,
     hasHeadToHead: true,
     hasSmsSubmission: true,
+    hasMmsSubmission: true,
     hasOcrScanning: true,
+    hasCustomBranding: true,
+  },
+  // Legacy aliases for backward compatibility
+  basic: {
+    maxTeams: 10,
+    maxLeagues: 1,
+    maxSeasonsHistory: 0,
+    hasPlayerStats: false,
+    hasPhotoUpload: false,
+    hasHallOfFame: false,
+    hasHeadToHead: false,
+    hasSmsSubmission: false,
+    hasMmsSubmission: false,
+    hasOcrScanning: true,
+    hasCustomBranding: false,
+  },
+  premium: {
+    maxTeams: Infinity,
+    maxLeagues: -1,
+    maxSeasonsHistory: -1,
+    hasPlayerStats: true,
+    hasPhotoUpload: true,
+    hasHallOfFame: true,
+    hasHeadToHead: true,
+    hasSmsSubmission: true,
+    hasMmsSubmission: true,
+    hasOcrScanning: true,
+    hasCustomBranding: true,
   },
 };
 
@@ -60,10 +107,18 @@ export function getTierLimits(tier: string | undefined | null): TierLimits {
 
 export function canAddTeam(tier: string | undefined | null, currentTeamCount: number): boolean {
   const limits = getTierLimits(tier);
-  return currentTeamCount < limits.maxTeams;
+  return limits.maxTeams === Infinity || currentTeamCount < limits.maxTeams;
 }
 
-export function hasFeature(tier: string | undefined | null, feature: keyof Omit<TierLimits, 'maxTeams' | 'maxSeasonsHistory'>): boolean {
+export function canCreateLeague(tier: string | undefined | null, currentLeagueCount: number): boolean {
+  const limits = getTierLimits(tier);
+  return limits.maxLeagues === -1 || currentLeagueCount < limits.maxLeagues;
+}
+
+export function hasFeature(
+  tier: string | undefined | null,
+  feature: keyof Omit<TierLimits, 'maxTeams' | 'maxLeagues' | 'maxSeasonsHistory'>
+): boolean {
   const limits = getTierLimits(tier);
   return limits[feature] as boolean;
 }
@@ -90,11 +145,8 @@ export function getGraceDaysRemaining(pastDueSince: string | null | undefined): 
  * An org is read-only when subscription is past_due/canceled/expired.
  * During the 30-day grace period they can still read everything but can't write.
  */
-export function isOrgReadOnly(
-  subscriptionStatus: string | undefined | null,
-): boolean {
+export function isOrgReadOnly(subscriptionStatus: string | undefined | null): boolean {
   if (!subscriptionStatus) return false;
   if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') return false;
-  // past_due, canceled, expired → read-only
   return true;
 }

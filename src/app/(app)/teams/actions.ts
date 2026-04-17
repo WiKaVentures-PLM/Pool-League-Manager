@@ -2,7 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { checkOrgWriteAccess } from '@/lib/subscription/server-gate';
+import { checkOrgWriteAccess, checkTeamLimit } from '@/lib/subscription/server-gate';
 
 async function getAuthWithRole() {
   const supabase = createServerSupabaseClient();
@@ -45,6 +45,9 @@ export async function createTeam(formData: FormData) {
 
   const name = formData.get('name') as string;
   const seasonId = formData.get('season_id') as string;
+
+  const limitErr = await checkTeamLimit(auth.orgId, seasonId);
+  if (limitErr) return { error: limitErr };
   const venue = formData.get('venue') as string || null;
 
   if (!name) return { error: 'Team name is required' };
