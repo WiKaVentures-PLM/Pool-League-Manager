@@ -37,14 +37,19 @@ $$;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- C2. Fix create_org_with_admin() — verify auth.uid() matches param
+-- Signature must match 00004's original (Postgres forbids renaming
+-- input params via CREATE OR REPLACE). Service-role callers (signup
+-- server action) have auth.uid() = NULL and are trusted to pass the
+-- correct p_auth_user_id, so they bypass the identity check — same
+-- pattern used in submit_scores.
 -- ═══════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION create_org_with_admin(
   p_auth_user_id uuid,
-  p_org_name text,
-  p_user_name text,
-  p_user_email text,
-  p_user_phone text DEFAULT NULL
+  p_email text,
+  p_name text,
+  p_phone text,
+  p_org_name text
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -56,8 +61,10 @@ DECLARE
   v_profile_id uuid;
   v_slug text;
 BEGIN
-  -- AUTH CHECK: caller must be the same user
-  IF auth.uid() IS NULL OR auth.uid() != p_auth_user_id THEN
+  -- AUTH CHECK: authenticated callers must match p_auth_user_id.
+  -- Service-role calls (auth.uid() IS NULL) bypass this — only server
+  -- code holds the service key.
+  IF auth.uid() IS NOT NULL AND auth.uid() != p_auth_user_id THEN
     RAISE EXCEPTION 'Unauthorized: auth.uid() does not match p_auth_user_id';
   END IF;
 
@@ -86,7 +93,7 @@ BEGIN
 
   IF v_profile_id IS NULL THEN
     INSERT INTO profiles (auth_user_id, name, email, phone)
-    VALUES (p_auth_user_id, p_user_name, p_user_email, p_user_phone)
+    VALUES (p_auth_user_id, p_name, p_email, p_phone)
     RETURNING id INTO v_profile_id;
   END IF;
 
@@ -174,62 +181,58 @@ $$;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- H1. Fix replace_schedule() — use p_org_id/p_season_id, not JSON
+-- Keeps p_rows param name (Postgres forbids renaming input params via
+-- CREATE OR REPLACE; must match the existing 00007 signature) and
+-- preserves the real schedule columns (week, half, position_home,
+-- position_away, is_bye). Only the org_id/season_id values come from
+-- verified parameters now, closing the cross-org insertion hole.
 -- ═══════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION replace_schedule(
   p_org_id uuid,
   p_season_id uuid,
-  p_schedule jsonb
+  p_rows jsonb
 )
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-  v_caller_role text;
-  r jsonb;
 BEGIN
   -- Verify caller is admin of this org
-  SELECT m.role INTO v_caller_role
-  FROM memberships m
-  JOIN profiles p ON p.id = m.profile_id
-  WHERE p.auth_user_id = auth.uid()
-    AND m.org_id = p_org_id;
-
-  IF v_caller_role IS NULL OR v_caller_role != 'admin' THEN
-    RAISE EXCEPTION 'Unauthorized: only admins can replace schedule';
+  IF NOT EXISTS (
+    SELECT 1 FROM memberships m
+    JOIN profiles p ON p.id = m.profile_id
+    WHERE p.auth_user_id = auth.uid()
+      AND m.org_id = p_org_id
+      AND m.role = 'admin'
+  ) THEN
+    RAISE EXCEPTION 'Only admins can modify schedules';
   END IF;
 
-  -- Delete existing schedule for this org+season
+  -- Atomic: delete old + insert new in one transaction
   DELETE FROM schedule
   WHERE org_id = p_org_id AND season_id = p_season_id;
 
-  -- Insert new schedule entries using VERIFIED parameters (not JSON values)
-  FOR r IN SELECT * FROM jsonb_array_elements(p_schedule)
-  LOOP
-    INSERT INTO schedule (
-      org_id,
-      season_id,
-      week_number,
-      date,
-      home_team_id,
-      away_team_id,
-      venue,
-      is_position_night,
-      is_bye
-    ) VALUES (
-      p_org_id,                                    -- FIXED: was r->>'org_id'
-      p_season_id,                                 -- FIXED: was r->>'season_id'
-      (r->>'week_number')::int,
-      (r->>'date')::date,
-      (r->>'home_team_id')::uuid,
-      (r->>'away_team_id')::uuid,
-      r->>'venue',
-      COALESCE((r->>'is_position_night')::boolean, false),
-      COALESCE((r->>'is_bye')::boolean, false)
-    );
-  END LOOP;
+  INSERT INTO schedule (
+    org_id, season_id, week, date, half,
+    home_team_id, away_team_id, venue,
+    is_bye, is_position_night, position_home, position_away
+  )
+  SELECT
+    p_org_id,                                              -- verified, not from JSON
+    p_season_id,                                           -- verified, not from JSON
+    (r->>'week')::integer,
+    (r->>'date')::date,
+    COALESCE((r->>'half')::integer, 1),
+    (r->>'home_team_id')::uuid,
+    (r->>'away_team_id')::uuid,
+    r->>'venue',
+    COALESCE((r->>'is_bye')::boolean, false),
+    COALESCE((r->>'is_position_night')::boolean, false),
+    (r->>'position_home')::integer,
+    (r->>'position_away')::integer
+  FROM jsonb_array_elements(p_rows) AS r;
 END;
 $$;
 
