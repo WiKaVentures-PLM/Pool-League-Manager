@@ -8,17 +8,12 @@ function twimlResponse(message: string): Response {
   });
 }
 
-/**
- * Normalize phone to E.164 format (+1XXXXXXXXXX for US numbers).
- * Strips everything except digits, then prepends +1 if needed.
- */
 function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
-  // Already has country code or international
-  if (phone.startsWith('+')) return `+${digits}`;
-  return `+${digits}`;
+  // Canonicalize to last 10 digits. Handles Twilio's E.164 (+13197210662)
+  // and bare 10-digit values (3197210662) so the lookup matches how
+  // phones are currently stored in the profiles table. US-only — revisit
+  // if we ever add international leagues or migrate storage to E.164.
+  return phone.replace(/\D/g, '').slice(-10);
 }
 
 /**
