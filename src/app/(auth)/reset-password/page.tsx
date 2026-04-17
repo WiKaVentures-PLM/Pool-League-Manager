@@ -1,20 +1,14 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { login } from './actions';
+import { updatePassword } from '../login/actions';
 
-function LoginForm() {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const urlError = searchParams.get('error');
-    if (urlError) setError(urlError);
-  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -22,7 +16,16 @@ function LoginForm() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await login(formData);
+    const password = formData.get('password') as string;
+    const confirm = formData.get('confirm') as string;
+
+    if (password !== confirm) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    const result = await updatePassword(formData);
 
     if (result?.error) {
       setError(result.error);
@@ -38,45 +41,41 @@ function LoginForm() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-5xl mb-4">🎱</div>
-          <h1 className="text-3xl font-black text-slate-800">Welcome Back</h1>
-          <p className="text-slate-600">Sign in to your league</p>
+          <h1 className="text-3xl font-black text-slate-800">New Password</h1>
+          <p className="text-slate-600">Choose a new password for your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-emerald-500 focus:outline-none"
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div>
             <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
-              Password
+              New Password
             </label>
             <input
               id="password"
               name="password"
               type="password"
               required
-              autoComplete="current-password"
+              minLength={8}
+              autoComplete="new-password"
               className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-emerald-500 focus:outline-none"
               placeholder="••••••••"
             />
           </div>
 
-          <div className="text-right">
-            <Link href="/forgot-password" className="text-sm text-emerald-600 hover:text-emerald-700">
-              Forgot password?
-            </Link>
+          <div>
+            <label htmlFor="confirm" className="block text-sm font-medium text-slate-700 mb-1">
+              Confirm Password
+            </label>
+            <input
+              id="confirm"
+              name="confirm"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-emerald-500 focus:outline-none"
+              placeholder="••••••••"
+            />
           </div>
 
           {error && (
@@ -90,25 +89,16 @@ function LoginForm() {
             disabled={loading}
             className="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Updating...' : 'Update Password'}
           </button>
         </form>
 
         <p className="mt-6 text-center text-slate-600">
-          Don&apos;t have a league yet?{' '}
-          <Link href="/signup" className="text-emerald-600 hover:text-emerald-700 font-semibold">
-            Start Free Trial
+          <Link href="/login" className="text-emerald-600 hover:text-emerald-700 font-semibold">
+            Back to Sign In
           </Link>
         </p>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
   );
 }

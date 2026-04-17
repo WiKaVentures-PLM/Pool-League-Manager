@@ -14,11 +14,12 @@ export interface Organization {
   id: string;
   name: string;
   slug: string;
-  subscription_tier: 'free' | 'trial' | 'basic' | 'pro' | 'premium';
+  subscription_tier: 'trial' | 'basic' | 'pro' | 'premium';
   subscription_status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'expired';
   trial_ends_at: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  past_due_since: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { validateMatchups, type MatchupInput } from '@/lib/validation/score-validation';
 import { notifyScoreSubmitted, notifyAdminConflict, notifyBothTeamsApproved } from '@/lib/email/notifications';
+import { checkOrgWriteAccess } from '@/lib/subscription/server-gate';
 
 async function getAuth() {
   const supabase = createServerSupabaseClient();
@@ -37,6 +38,24 @@ export async function submitScores(data: {
 }): Promise<{ error: string | null; status?: string }> {
   const auth = await getAuth();
   if (!auth) return { error: 'Not authenticated' };
+  const writeErr = await checkOrgWriteAccess(auth.orgId);
+  if (writeErr) return { error: writeErr };
+
+  // Verify the caller is a captain/admin and owns the team
+  if (auth.role === 'player') {
+    return { error: 'Only captains and admins can submit scores' };
+  }
+  if (auth.role === 'captain') {
+    const supabaseCheck = createServerSupabaseClient();
+    const { data: team } = await supabaseCheck
+      .from('teams')
+      .select('captain_profile_id')
+      .eq('id', data.teamId)
+      .single();
+    if (!team || team.captain_profile_id !== auth.profileId) {
+      return { error: 'You can only submit scores for your own team' };
+    }
+  }
 
   // Validate matchups
   const validation = validateMatchups(data.matchups, data.matchesPerNight, data.bestOf);
@@ -69,7 +88,9 @@ export async function submitScores(data: {
   revalidatePath('/admin');
 
   // Fire email notifications asynchronously (don't block response)
-  sendScoreNotifications(supabase, auth, data, status, validation.homeScore, validation.awayScore).catch(() => {});
+  sendScoreNotifications(supabase, auth, data, status, validation.homeScore, validation.awayScore).catch((err) => {
+    console.error('[email] Score notification failed:', err);
+  });
 
   return { error: null, status };
 }
@@ -103,7 +124,7 @@ async function sendScoreNotifications(
   // Get submitter's profile
   const { data: submitter } = await supabase
     .from('profiles')
-    .select('email, display_name')
+    .select('email, name')
     .eq('id', auth.profileId)
     .single();
   if (!submitter?.email) return;
@@ -112,7 +133,7 @@ async function sendScoreNotifications(
   const mappedStatus = status === 'pending' ? 'pending' : status === 'auto_approved' ? 'auto_approved' : 'conflict';
   await notifyScoreSubmitted({
     captainEmail: submitter.email,
-    captainName: submitter.display_name || 'Captain',
+    captainName: submitter.name || 'Captain',
     homeTeam: homeTeam.name,
     awayTeam: awayTeam.name,
     week: sched.week,
@@ -169,6 +190,8 @@ async function sendScoreNotifications(
 export async function withdrawSubmission(submissionId: string): Promise<{ error: string | null }> {
   const auth = await getAuth();
   if (!auth) return { error: 'Not authenticated' };
+  const writeErr = await checkOrgWriteAccess(auth.orgId);
+  if (writeErr) return { error: writeErr };
 
   const supabase = createServerSupabaseClient();
   const { error } = await supabase

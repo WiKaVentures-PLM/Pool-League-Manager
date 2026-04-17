@@ -3,8 +3,9 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { ScheduleWeek } from '@/lib/schedule/round-robin';
+import { checkOrgWriteAccess } from '@/lib/subscription/server-gate';
 
-async function getOrgId() {
+async function getAdminOrgId() {
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -18,26 +19,21 @@ async function getOrgId() {
 
   const { data: membership } = await supabase
     .from('memberships')
-    .select('org_id')
+    .select('org_id, role')
     .eq('profile_id', profile.id)
     .single();
 
-  return membership?.org_id || null;
+  if (!membership || membership.role !== 'admin') return null;
+
+  return membership.org_id;
 }
 
 export async function saveSchedule(seasonId: string, weeks: ScheduleWeek[]) {
   const supabase = createServerSupabaseClient();
-  const orgId = await getOrgId();
-  if (!orgId) return { error: 'Not authenticated' };
-
-  // Delete existing schedule for this season
-  const { error: deleteError } = await supabase
-    .from('schedule')
-    .delete()
-    .eq('org_id', orgId)
-    .eq('season_id', seasonId);
-
-  if (deleteError) return { error: deleteError.message };
+  const orgId = await getAdminOrgId();
+  if (!orgId) return { error: 'Not authorized. Admin role required.' };
+  const writeErr = await checkOrgWriteAccess(orgId);
+  if (writeErr) return { error: writeErr };
 
   // Flatten weeks into rows
   const rows = weeks.flatMap(week =>
@@ -57,11 +53,30 @@ export async function saveSchedule(seasonId: string, weeks: ScheduleWeek[]) {
     }))
   );
 
-  // Insert in batches of 100
-  for (let i = 0; i < rows.length; i += 100) {
-    const batch = rows.slice(i, i + 100);
-    const { error } = await supabase.from('schedule').insert(batch);
-    if (error) return { error: error.message };
+  // Use an RPC for atomic delete+insert to prevent partial schedules
+  const { error } = await supabase.rpc('replace_schedule', {
+    p_org_id: orgId,
+    p_season_id: seasonId,
+    p_rows: rows,
+  });
+
+  // Fallback: if the RPC doesn't exist yet, do it the old way
+  if (error?.message?.includes('replace_schedule')) {
+    const { error: deleteError } = await supabase
+      .from('schedule')
+      .delete()
+      .eq('org_id', orgId)
+      .eq('season_id', seasonId);
+
+    if (deleteError) return { error: deleteError.message };
+
+    for (let i = 0; i < rows.length; i += 100) {
+      const batch = rows.slice(i, i + 100);
+      const { error: insertError } = await supabase.from('schedule').insert(batch);
+      if (insertError) return { error: insertError.message };
+    }
+  } else if (error) {
+    return { error: error.message };
   }
 
   revalidatePath('/schedule');
@@ -70,8 +85,10 @@ export async function saveSchedule(seasonId: string, weeks: ScheduleWeek[]) {
 
 export async function deleteSchedule(seasonId: string) {
   const supabase = createServerSupabaseClient();
-  const orgId = await getOrgId();
-  if (!orgId) return { error: 'Not authenticated' };
+  const orgId = await getAdminOrgId();
+  if (!orgId) return { error: 'Not authorized. Admin role required.' };
+  const writeErr = await checkOrgWriteAccess(orgId);
+  if (writeErr) return { error: writeErr };
 
   const { error } = await supabase
     .from('schedule')

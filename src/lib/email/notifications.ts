@@ -2,6 +2,16 @@ import { sendEmail } from './send-email';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://pool-league-manager.com';
 
+/** Escape HTML special characters to prevent injection in email templates */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function wrap(content: string): string {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -42,8 +52,8 @@ export async function notifyScoreSubmitted(opts: {
     to: opts.captainEmail,
     subject: `Scores submitted: ${opts.homeTeam} vs ${opts.awayTeam} (Week ${opts.week})`,
     html: wrap(`
-      <p>Hi ${opts.captainName},</p>
-      <p>Your scores for <strong>Week ${opts.week}: ${opts.homeTeam} vs ${opts.awayTeam}</strong> have been submitted.</p>
+      <p>Hi ${escapeHtml(opts.captainName)},</p>
+      <p>Your scores for <strong>Week ${opts.week}: ${escapeHtml(opts.homeTeam)} vs ${escapeHtml(opts.awayTeam)}</strong> have been submitted.</p>
       <div style="background: ${statusColors[opts.status]}15; border-left: 4px solid ${statusColors[opts.status]}; padding: 12px 16px; border-radius: 4px; margin: 16px 0;">
         <strong style="color: ${statusColors[opts.status]};">
           ${opts.status === 'pending' ? 'Pending' : opts.status === 'auto_approved' ? 'Approved' : 'Conflict'}
@@ -70,7 +80,7 @@ export async function notifyAdminConflict(opts: {
       <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 4px; margin: 16px 0;">
         <strong style="color: #ef4444;">Score Mismatch</strong>
         <p style="margin: 4px 0 0; color: #475569;">
-          Both captains submitted different scores for <strong>Week ${opts.week}: ${opts.homeTeam} vs ${opts.awayTeam}</strong>.
+          Both captains submitted different scores for <strong>Week ${opts.week}: ${escapeHtml(opts.homeTeam)} vs ${escapeHtml(opts.awayTeam)}</strong>.
         </p>
       </div>
       <p><a href="${APP_URL}/admin" style="display: inline-block; background: #059669; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600;">Review in Admin Panel</a></p>
@@ -95,7 +105,7 @@ export async function notifyBothTeamsApproved(opts: {
       <div style="background: #f0fdf4; border-left: 4px solid #059669; padding: 12px 16px; border-radius: 4px; margin: 16px 0;">
         <strong style="color: #059669;">Week ${opts.week} Results</strong>
         <p style="margin: 8px 0 0; font-size: 18px; color: #1e293b;">
-          ${opts.homeTeam} <strong>${opts.homeScore}</strong> — <strong>${opts.awayScore}</strong> ${opts.awayTeam}
+          ${escapeHtml(opts.homeTeam)} <strong>${opts.homeScore}</strong> — <strong>${opts.awayScore}</strong> ${escapeHtml(opts.awayTeam)}
         </p>
       </div>
       <p><a href="${APP_URL}/standings" style="color: #059669;">View updated standings</a></p>

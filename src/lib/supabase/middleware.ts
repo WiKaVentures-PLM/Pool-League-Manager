@@ -29,7 +29,7 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/auth/confirm'];
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/auth/confirm', '/forgot-password', '/reset-password'];
   const isPublicPath = publicPaths.some(p =>
     pathname === p || pathname.startsWith(p + '/')
   );

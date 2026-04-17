@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { Button, Card, CardHeader, CardBody, Badge } from '@/components/ui';
-import { CreditCard, Check } from 'lucide-react';
+import { CreditCard, Check, ExternalLink } from 'lucide-react';
 
 const PLANS = [
   {
@@ -37,9 +37,31 @@ export function BillingSection() {
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const [portalLoading, setPortalLoading] = useState(false);
   const supabase = createClient();
 
-  const currentTier = organization?.subscription_tier || 'free';
+  const currentTier = organization?.subscription_tier || 'trial';
+  const hasActiveSubscription = organization?.stripe_customer_id && currentTier !== 'trial';
+
+  async function handleManageBilling() {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-portal-session');
+      if (error) {
+        toast(error.message || 'Failed to open billing portal', 'error');
+        setPortalLoading(false);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast('No portal URL returned', 'error');
+      }
+    } catch {
+      toast('Failed to open billing portal. Please try again.', 'error');
+    }
+    setPortalLoading(false);
+  }
 
   async function handleUpgrade(planId: string) {
     setLoading(planId);
@@ -77,13 +99,24 @@ export function BillingSection() {
         {/* Current plan */}
         <div className="flex items-center gap-3 mb-6">
           <span className="text-sm text-slate-600">Current plan:</span>
-          <Badge variant={currentTier === 'free' ? 'default' : 'success'}>
+          <Badge variant={currentTier === 'trial' ? 'default' : 'success'}>
             {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)}
           </Badge>
           {organization?.subscription_status && organization.subscription_status !== 'trialing' && (
             <Badge variant={organization.subscription_status === 'active' ? 'success' : 'warning'}>
               {organization.subscription_status}
             </Badge>
+          )}
+          {hasActiveSubscription && (
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={portalLoading}
+              onClick={handleManageBilling}
+            >
+              <ExternalLink className="w-3.5 h-3.5 mr-1" />
+              Manage Subscription
+            </Button>
           )}
         </div>
 

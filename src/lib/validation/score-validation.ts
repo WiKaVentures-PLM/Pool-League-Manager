@@ -19,7 +19,9 @@ export function validateMatchups(
 ): ScoreValidationResult {
   const errors: string[] = [];
   const winsNeeded = Math.ceil(bestOf / 2);
-  const usedPlayers = new Set<string>();
+  // Track home and away players separately to allow same-name players across teams
+  const usedHomePlayers = new Set<string>();
+  const usedAwayPlayers = new Set<string>();
 
   if (matchups.length !== matchesPerNight) {
     errors.push(`Expected ${matchesPerNight} matchups, got ${matchups.length}`);
@@ -40,15 +42,15 @@ export function validateMatchups(
       continue;
     }
 
-    // Check duplicate players
-    if (usedPlayers.has(m.home_player)) {
+    // Check duplicate players within each team
+    if (usedHomePlayers.has(m.home_player)) {
       errors.push(`Game ${gameNum}: Home player already used in another game`);
     }
-    if (usedPlayers.has(m.away_player)) {
+    if (usedAwayPlayers.has(m.away_player)) {
       errors.push(`Game ${gameNum}: Away player already used in another game`);
     }
-    usedPlayers.add(m.home_player);
-    usedPlayers.add(m.away_player);
+    usedHomePlayers.add(m.home_player);
+    usedAwayPlayers.add(m.away_player);
 
     // Validate scores: one player must have winsNeeded, the other must have less
     const validHome = m.home_wins === winsNeeded && m.away_wins >= 0 && m.away_wins < winsNeeded;

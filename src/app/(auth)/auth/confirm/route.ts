@@ -9,7 +9,20 @@ export async function GET(request: NextRequest) {
 
   if (token_hash && type) {
     const supabase = createServerSupabaseClient();
-    await supabase.auth.verifyOtp({ token_hash, type });
+    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+
+    if (error) {
+      const errorUrl = new URL('/login', request.url);
+      errorUrl.searchParams.set('error', 'Verification failed. The link may have expired.');
+      return NextResponse.redirect(errorUrl);
+    }
+
+    // After successful recovery OTP verification, redirect to reset password page
+    if (type === 'recovery') {
+      return NextResponse.redirect(new URL('/reset-password', request.url));
+    }
+  } else {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.redirect(new URL('/dashboard', request.url));

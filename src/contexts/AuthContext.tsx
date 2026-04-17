@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile, Membership, Organization } from '@/types';
 import type { User } from '@supabase/supabase-js';
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: true,
   });
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   async function loadUserData(user: User) {
     // Load profile

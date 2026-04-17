@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { validateMatchups, type MatchupInput } from '@/lib/validation/score-validation';
+import { checkOrgWriteAccess } from '@/lib/subscription/server-gate';
 
 async function requireAdmin() {
   const supabase = createServerSupabaseClient();
@@ -32,6 +33,8 @@ export async function approveSubmission(data: {
 }): Promise<{ error: string | null }> {
   const admin = await requireAdmin();
   if (!admin) return { error: 'Not authorized' };
+  const writeErr = await checkOrgWriteAccess(admin.orgId);
+  if (writeErr) return { error: writeErr };
 
   const supabase = createServerSupabaseClient();
   const { data: result, error } = await supabase.rpc('admin_approve_submission', {
@@ -59,6 +62,8 @@ export async function rejectSubmissions(data: {
 }): Promise<{ error: string | null }> {
   const admin = await requireAdmin();
   if (!admin) return { error: 'Not authorized' };
+  const writeErr = await checkOrgWriteAccess(admin.orgId);
+  if (writeErr) return { error: writeErr };
 
   const supabase = createServerSupabaseClient();
   const { error } = await supabase.rpc('admin_reject_submissions', {
@@ -82,6 +87,8 @@ export async function adminPostScores(data: {
 }): Promise<{ error: string | null }> {
   const admin = await requireAdmin();
   if (!admin) return { error: 'Not authorized' };
+  const writeErr = await checkOrgWriteAccess(admin.orgId);
+  if (writeErr) return { error: writeErr };
 
   const validation = validateMatchups(data.matchups, data.matchesPerNight, data.bestOf);
   if (!validation.valid) {
@@ -132,6 +139,8 @@ export async function processSmsScore(data: {
 }): Promise<{ error: string | null }> {
   const admin = await requireAdmin();
   if (!admin) return { error: 'Not authorized' };
+  const writeErr = await checkOrgWriteAccess(admin.orgId);
+  if (writeErr) return { error: writeErr };
 
   const supabase = createServerSupabaseClient();
 

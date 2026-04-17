@@ -1,4 +1,4 @@
-type Tier = 'free' | 'trial' | 'basic' | 'pro' | 'premium';
+type Tier = 'trial' | 'basic' | 'pro' | 'premium';
 
 interface TierLimits {
   maxTeams: number;
@@ -12,16 +12,6 @@ interface TierLimits {
 }
 
 const TIER_LIMITS: Record<Tier, TierLimits> = {
-  free: {
-    maxTeams: 6,
-    maxSeasonsHistory: 0,
-    hasPlayerStats: false,
-    hasPhotoUpload: false,
-    hasHallOfFame: false,
-    hasHeadToHead: false,
-    hasSmsSubmission: false,
-    hasOcrScanning: false,
-  },
   trial: {
     maxTeams: 20,
     maxSeasonsHistory: -1,
@@ -65,7 +55,7 @@ const TIER_LIMITS: Record<Tier, TierLimits> = {
 };
 
 export function getTierLimits(tier: string | undefined | null): TierLimits {
-  return TIER_LIMITS[(tier as Tier) || 'free'] || TIER_LIMITS.free;
+  return TIER_LIMITS[(tier as Tier) || 'trial'] || TIER_LIMITS.trial;
 }
 
 export function canAddTeam(tier: string | undefined | null, currentTeamCount: number): boolean {
@@ -80,4 +70,31 @@ export function hasFeature(tier: string | undefined | null, feature: keyof Omit<
 
 export function getUpgradeMessage(feature: string, requiredTier: string): string {
   return `${feature} requires the ${requiredTier} plan or higher. Upgrade in Settings > Billing.`;
+}
+
+const GRACE_PERIOD_DAYS = 30;
+
+/**
+ * Calculate how many grace days remain for a past-due org.
+ * Returns null if not past-due, 0 if grace period expired.
+ */
+export function getGraceDaysRemaining(pastDueSince: string | null | undefined): number | null {
+  if (!pastDueSince) return null;
+  const start = new Date(pastDueSince).getTime();
+  const now = Date.now();
+  const elapsed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  return Math.max(0, GRACE_PERIOD_DAYS - elapsed);
+}
+
+/**
+ * An org is read-only when subscription is past_due/canceled/expired.
+ * During the 30-day grace period they can still read everything but can't write.
+ */
+export function isOrgReadOnly(
+  subscriptionStatus: string | undefined | null,
+): boolean {
+  if (!subscriptionStatus) return false;
+  if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') return false;
+  // past_due, canceled, expired → read-only
+  return true;
 }

@@ -1,17 +1,21 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { getTierLimits, hasFeature, canAddTeam } from './features';
+import { getTierLimits, hasFeature, canAddTeam, isOrgReadOnly, getGraceDaysRemaining } from './features';
 
 export function useFeatures() {
   const { organization } = useAuth();
   const tier = organization?.subscription_tier;
   const limits = getTierLimits(tier);
+  const readOnly = isOrgReadOnly(organization?.subscription_status);
+  const graceDaysRemaining = getGraceDaysRemaining(organization?.past_due_since);
 
   return {
-    tier: tier || 'free',
+    tier: tier || 'trial',
     limits,
-    canAddTeam: (currentCount: number) => canAddTeam(tier, currentCount),
+    isReadOnly: readOnly,
+    graceDaysRemaining,
+    canAddTeam: (currentCount: number) => !readOnly && canAddTeam(tier, currentCount),
     hasPlayerStats: hasFeature(tier, 'hasPlayerStats'),
     hasPhotoUpload: hasFeature(tier, 'hasPhotoUpload'),
     hasHallOfFame: hasFeature(tier, 'hasHallOfFame'),

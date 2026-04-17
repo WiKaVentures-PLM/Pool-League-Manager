@@ -166,24 +166,12 @@ export function calcStandings(config: StandingsConfig): StandingRow[] {
     };
   });
 
-  // Sort
-  rows.sort((a, b) => {
-    // 1. Wins desc
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    // 2. Games won desc
-    if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
-    // 3. Head-to-head
-    const h2h = getHeadToHead(a.teamId, b.teamId, matches);
-    if (h2h.aWins !== h2h.bWins) return h2h.bWins - h2h.aWins; // More wins = higher rank for b, so if a has more wins, return negative
-    // 4. Alphabetical
-    return a.teamName.localeCompare(b.teamName);
-  });
-
-  // Fix h2h sort direction — if a has more h2h wins, a should rank higher (lower index)
+  // Sort by: 1) Wins desc, 2) Games won desc, 3) H2H record, 4) Alphabetical
   rows.sort((a, b) => {
     if (b.wins !== a.wins) return b.wins - a.wins;
     if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
     const h2h = getHeadToHead(a.teamId, b.teamId, matches);
+    // If a has more H2H wins, result is negative → a sorts first (higher rank)
     if (h2h.aWins !== h2h.bWins) return h2h.bWins - h2h.aWins;
     return a.teamName.localeCompare(b.teamName);
   });
