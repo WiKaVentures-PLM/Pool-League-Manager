@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { brandMessage } from '../_shared/sms.ts';
 
 // Async SMS score processor. Invoked by pg_net from the twilio-webhook
 // after that webhook has already returned 200 to Twilio. Loads the queued
@@ -33,7 +34,7 @@ async function sendSms(to: string, body: string): Promise<void> {
   }
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
   const auth = 'Basic ' + uint8ToBase64(new TextEncoder().encode(`${sid}:${token}`));
-  const form = new URLSearchParams({ To: to, From: from, Body: body });
+  const form = new URLSearchParams({ To: to, From: from, Body: brandMessage(body) });
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Authorization': auth, 'Content-Type': 'application/x-www-form-urlencoded' },

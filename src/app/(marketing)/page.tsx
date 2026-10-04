@@ -285,10 +285,12 @@ export default function LandingPage() {
             <span>🎱</span>
             <span className="font-bold text-slate-300">Pool League Manager</span>
           </div>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap justify-center gap-6">
             <Link href="/pricing" className="hover:text-slate-200 transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-slate-200 transition-colors">Sign In</Link>
             <Link href="/signup" className="hover:text-slate-200 transition-colors">Sign Up</Link>
+            <Link href="/privacy" className="hover:text-slate-200 transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-slate-200 transition-colors">Terms</Link>
           </div>
           <span>&copy; {new Date().getFullYear()} Pool League Manager</span>
         </div>

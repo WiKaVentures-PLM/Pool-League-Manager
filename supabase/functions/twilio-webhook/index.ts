@@ -1,8 +1,17 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
+import { brandMessage } from '../_shared/sms.ts';
+
+function xmlEscape(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 function twimlResponse(message: string): Response {
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${message}</Message></Response>`;
+  const body = xmlEscape(brandMessage(message));
+  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${body}</Message></Response>`;
   return new Response(twiml, {
     headers: { 'Content-Type': 'text/xml' },
   });
@@ -104,7 +113,7 @@ Deno.serve(async (req: Request) => {
     // 23505 = unique_violation — this is a Twilio retry, already queued.
     // Any other error is real; still respond 200 so Twilio doesn't retry.
     if (insertError.code === '23505') {
-      return twimlResponse('Got it — your scoresheet is already being processed.');
+      return twimlResponse('Got it - your scoresheet is already being processed.');
     }
     console.error('Failed to enqueue SMS:', insertError);
     return twimlResponse('Sorry, we hit a technical issue. Please try again in a minute.');
@@ -127,8 +136,8 @@ Deno.serve(async (req: Request) => {
     console.error('Failed to enqueue processor:', enqueueError);
     // Row is queued; a drainer can pick it up later. Still tell the
     // captain something reasonable.
-    return twimlResponse('Got your scoresheet — an admin will review it shortly.');
+    return twimlResponse('Got your scoresheet - an admin will review it shortly.');
   }
 
-  return twimlResponse('Got it! Reading your scoresheet — we\'ll text back with the result in a minute.');
+  return twimlResponse('Got it! Reading your scoresheet - we\'ll text back with the result in a minute.');
 });
