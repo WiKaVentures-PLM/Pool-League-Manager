@@ -29,7 +29,10 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/auth/confirm', '/forgot-password', '/reset-password'];
+  // /privacy and /terms must stay reachable without a session: mobile carriers
+  // review them as part of our A2P 10DLC campaign registration, and they are
+  // linked from the public marketing pages.
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/privacy', '/terms', '/auth/confirm', '/forgot-password', '/reset-password'];
   const isPublicPath = publicPaths.some(p =>
     pathname === p || pathname.startsWith(p + '/')
   );
