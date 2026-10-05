@@ -48,7 +48,7 @@ const plans = [
     cta: 'Start Free Trial',
     ctaHref: '/signup',
     highlight: true,
-    badge: 'Most Popular',
+    badge: 'Recommended',
     features: [
       { label: '1 league', included: true },
       { label: 'Up to 20 teams', included: true },

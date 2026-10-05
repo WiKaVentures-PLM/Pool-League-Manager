@@ -56,7 +56,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-5 text-emerald-300 text-sm">
-            Used by leagues across the Midwest
+            Built in Iowa for bar and tavern pool leagues
           </p>
         </div>
       </section>
@@ -191,38 +191,6 @@ export default function LandingPage() {
                 <div className="text-4xl mb-3">{f.icon}</div>
                 <h3 className="text-lg font-bold text-slate-800 mb-2">{f.title}</h3>
                 <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Social proof */}
-      <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-block mb-8 px-6 py-3 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-700 font-semibold">
-            Join leagues already using Pool League Manager
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6 text-left">
-            {[
-              {
-                quote: "We went from emailing spreadsheets every week to just pointing everyone at the website. Game changer.",
-                author: 'Mark T.',
-                role: 'League Director, Iowa City',
-              },
-              {
-                quote: "The schedule generator alone saved me hours. It used to take me half a day to build the bracket for 12 teams.",
-                author: 'Sandra K.',
-                role: 'Bar League Organizer',
-              },
-            ].map(({ quote, author, role }) => (
-              <div key={author} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <p className="text-slate-600 italic mb-4">&ldquo;{quote}&rdquo;</p>
-                <div>
-                  <div className="font-bold text-slate-800 text-sm">{author}</div>
-                  <div className="text-slate-400 text-xs">{role}</div>
-                </div>
               </div>
             ))}
           </div>
