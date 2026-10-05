@@ -17,8 +17,6 @@ const plans = [
       { label: 'Auto schedule generation', included: true },
       { label: 'Live standings', included: true },
       { label: 'Player stats', included: false },
-      { label: 'SMS score submission', included: false },
-      { label: 'MMS photo submission', included: false },
       { label: 'Season history', included: false },
       { label: 'Custom branding', included: false },
     ],
@@ -27,7 +25,7 @@ const plans = [
     name: 'Starter',
     price: '$19',
     period: '/month',
-    description: 'For growing leagues that need SMS and unlimited teams.',
+    description: 'For growing leagues that need unlimited teams and full stats.',
     cta: 'Start Free Trial',
     ctaHref: '/signup',
     highlight: true,
@@ -39,8 +37,6 @@ const plans = [
       { label: 'Auto schedule generation', included: true },
       { label: 'Live standings', included: true },
       { label: 'Player stats', included: true },
-      { label: 'SMS score submission', included: true },
-      { label: 'MMS photo submission', included: false },
       { label: '3 years season history', included: true },
       { label: 'Custom branding', included: false },
       { label: 'Priority support', included: true },
@@ -61,8 +57,6 @@ const plans = [
       { label: 'Auto schedule generation', included: true },
       { label: 'Live standings', included: true },
       { label: 'Player stats + Head-to-Head', included: true },
-      { label: 'SMS score submission', included: true },
-      { label: 'MMS photo submission', included: true },
       { label: 'Unlimited season history', included: true },
       { label: 'Custom branding', included: true },
     ],
@@ -99,7 +93,7 @@ export default function PricingPage() {
           Simple, transparent pricing
         </h1>
         <p className="text-slate-400 text-lg max-w-xl mx-auto">
-          Start free. Upgrade when you need SMS submission or more leagues. No hidden fees.
+          Start free. Upgrade when you need more teams, stats, or leagues. No hidden fees.
         </p>
       </section>
 
@@ -179,10 +173,6 @@ export default function PricingPage() {
               {
                 q: 'What counts as a "league"?',
                 a: 'Each pool league you organize is one league. A single bar or venue usually has one league. The Pro plan is for operators running multiple independent leagues.',
-              },
-              {
-                q: 'How does SMS score submission work?',
-                a: 'On Starter and Pro, captains can text a photo of the scoresheet to a dedicated number. We parse the scores automatically using AI and queue them for approval.',
               },
               {
                 q: 'What happens after the trial?',

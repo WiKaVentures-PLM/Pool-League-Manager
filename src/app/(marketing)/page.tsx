@@ -234,7 +234,8 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-black text-slate-800 mb-3">Pricing that makes sense</h2>
           <p className="text-slate-500 mb-8">
-            Start completely free. Small league? Stay free forever. Need SMS submission or multiple leagues? Affordable upgrades are ready when you are.
+            Start completely free. Small league? Stay free forever. Need unlimited teams, full
+            stats, or multiple leagues? Affordable upgrades are ready when you are.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <div className="flex items-baseline gap-1">
@@ -244,7 +245,7 @@ export default function LandingPage() {
             <span className="text-slate-300 hidden sm:block">|</span>
             <div className="flex items-baseline gap-1">
               <span className="text-4xl font-black text-slate-800">$19</span>
-              <span className="text-slate-500">/mo for SMS</span>
+              <span className="text-slate-500">/mo for Starter</span>
             </div>
             <span className="text-slate-300 hidden sm:block">|</span>
             <div className="flex items-baseline gap-1">
@@ -289,7 +290,6 @@ export default function LandingPage() {
             <Link href="/pricing" className="hover:text-slate-200 transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-slate-200 transition-colors">Sign In</Link>
             <Link href="/signup" className="hover:text-slate-200 transition-colors">Sign Up</Link>
-            <Link href="/sms" className="hover:text-slate-200 transition-colors">Text Scores</Link>
             <Link href="/privacy" className="hover:text-slate-200 transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-slate-200 transition-colors">Terms</Link>
           </div>
