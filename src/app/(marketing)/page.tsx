@@ -244,13 +244,13 @@ export default function LandingPage() {
             </div>
             <span className="text-slate-300 hidden sm:block">|</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-black text-slate-800">$19</span>
-              <span className="text-slate-500">/mo for Starter</span>
+              <span className="text-4xl font-black text-slate-800">$5</span>
+              <span className="text-slate-500">/mo for Basic</span>
             </div>
             <span className="text-slate-300 hidden sm:block">|</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-black text-slate-800">$39</span>
-              <span className="text-slate-500">/mo for Pro</span>
+              <span className="text-4xl font-black text-slate-800">$20</span>
+              <span className="text-slate-500">/mo for Premium</span>
             </div>
           </div>
           <Link

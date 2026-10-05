@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrg } from '@/contexts/OrgContext';
 import { Card, CardBody } from '@/components/ui';
-import { getTierLimits } from '@/lib/subscription/features';
+import { getTierLimits, effectiveTier } from '@/lib/subscription/features';
 import { History as HistoryIcon, ChevronRight, Lock } from 'lucide-react';
 
 function formatDateRange(start: string | null, end: string | null): string {
@@ -27,7 +27,7 @@ export default function HistoryPage() {
     );
   }
 
-  const limits = getTierLimits(organization?.subscription_tier);
+  const limits = getTierLimits(effectiveTier(organization));
   const historyEnabled = limits.maxSeasonsHistory !== 0;
 
   const pastSeasons = allSeasons

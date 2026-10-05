@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { parseScoresheetImage } from '@/lib/ocr/parse-scoresheet';
-import { hasFeature, isOrgReadOnly } from '@/lib/subscription/features';
+import { hasFeature, isOrgReadOnly, effectiveTier } from '@/lib/subscription/features';
 
 export const runtime = 'nodejs';
 
@@ -42,11 +42,11 @@ export async function POST(request: NextRequest) {
   // Check subscription tier supports OCR
   const { data: org } = await supabase
     .from('organizations')
-    .select('subscription_tier, subscription_status')
+    .select('subscription_tier, subscription_status, trial_ends_at')
     .eq('id', membership.org_id)
     .single();
 
-  if (!org || !hasFeature(org.subscription_tier, 'hasOcrScanning')) {
+  if (!org || !hasFeature(effectiveTier(org), 'hasOcrScanning')) {
     return NextResponse.json({ error: 'OCR scanning requires a Pro plan or higher. Upgrade in Settings > Billing.' }, { status: 403 });
   }
 

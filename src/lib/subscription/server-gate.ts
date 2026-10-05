@@ -1,7 +1,7 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { isOrgReadOnly, getTierLimits, canAddTeam } from './features';
+import { isOrgReadOnly, getTierLimits, canAddTeam, effectiveTier } from './features';
 
 const READ_ONLY_MSG =
   'Your account is past due. Please update your payment to continue making changes.';
@@ -35,7 +35,7 @@ export async function checkTeamLimit(orgId: string, seasonId: string): Promise<s
   const [orgRes, countRes] = await Promise.all([
     supabase
       .from('organizations')
-      .select('subscription_tier')
+      .select('subscription_tier, subscription_status, trial_ends_at')
       .eq('id', orgId)
       .single(),
     supabase
@@ -48,11 +48,11 @@ export async function checkTeamLimit(orgId: string, seasonId: string): Promise<s
   if (!orgRes.data) return null; // can't determine, allow
 
   const currentCount = countRes.count ?? 0;
-  const tier = orgRes.data.subscription_tier;
+  const tier = effectiveTier(orgRes.data);
 
   if (!canAddTeam(tier, currentCount)) {
     const limits = getTierLimits(tier);
-    return `Your plan allows up to ${limits.maxTeams} teams per season. Upgrade to Starter or Pro to add more.`;
+    return `Your plan allows up to ${limits.maxTeams} teams per season. Upgrade in Settings > Billing to add more.`;
   }
 
   return null;
@@ -78,7 +78,7 @@ export async function checkLeagueLimit(authUserId: string): Promise<string | nul
   // Count orgs where they are admin
   const { data: memberships } = await supabase
     .from('memberships')
-    .select('org_id, organizations(subscription_tier)')
+    .select('org_id, organizations(subscription_tier, subscription_status, trial_ends_at)')
     .eq('profile_id', profile.id)
     .eq('role', 'admin');
 
@@ -87,8 +87,15 @@ export async function checkLeagueLimit(authUserId: string): Promise<string | nul
   // Check if any existing org is on a tier that limits leagues
   // Use the highest tier across their orgs
   const existingCount = memberships.length;
-  const orgs = memberships.map((m) => m.organizations as unknown as { subscription_tier: string } | null);
-  const tiers = orgs.map((o) => o?.subscription_tier ?? 'free');
+  const orgs = memberships.map(
+    (m) =>
+      m.organizations as unknown as {
+        subscription_tier: string;
+        subscription_status: string | null;
+        trial_ends_at: string | null;
+      } | null,
+  );
+  const tiers = orgs.map((o) => (o ? effectiveTier(o) : 'free'));
 
   // If all orgs are free/basic/trial, apply the free limit (1 league)
   const hasMultiLeagueTier = tiers.some((t) =>
@@ -110,15 +117,17 @@ export async function checkSmsAccess(orgId: string): Promise<string | null> {
   const supabase = createServerSupabaseClient();
   const { data: org } = await supabase
     .from('organizations')
-    .select('subscription_tier')
+    .select('subscription_tier, subscription_status, trial_ends_at')
     .eq('id', orgId)
     .single();
 
   if (!org) return null;
 
-  const limits = getTierLimits(org.subscription_tier);
+  const limits = getTierLimits(effectiveTier(org));
   if (!limits.hasSmsSubmission) {
-    return 'SMS score submission requires the Starter plan or higher. Upgrade in Settings > Billing.';
+    // SMS is not sold on any plan right now, so this is deliberately not an
+    // upgrade prompt.
+    return 'SMS score submission is not available on your plan.';
   }
 
   return null;

@@ -14,7 +14,7 @@ import {
   type StandingsScheduleEntry,
   type StandingsAdjustmentInput,
 } from '@/lib/standings/calc-standings';
-import { getTierLimits } from '@/lib/subscription/features';
+import { getTierLimits, effectiveTier } from '@/lib/subscription/features';
 import { ChevronLeft, Trophy, Lock } from 'lucide-react';
 
 interface MatchRow {
@@ -39,7 +39,7 @@ export default function SeasonHistoryDetailPage() {
   const supabase = createClient();
 
   const season = allSeasons.find(s => s.id === seasonId);
-  const limits = getTierLimits(organization?.subscription_tier);
+  const limits = getTierLimits(effectiveTier(organization));
   const historyEnabled = limits.maxSeasonsHistory !== 0;
 
   useEffect(() => {

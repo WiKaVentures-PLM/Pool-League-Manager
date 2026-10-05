@@ -1,5 +1,9 @@
-// Canonical tier list — must match DB subscription_tier values
-export type Tier = 'trial' | 'free' | 'starter' | 'pro' | 'basic' | 'premium';
+// Tiers that can be STORED in organizations.subscription_tier (see the CHECK
+// constraint in migration 00002): trial, basic, pro, premium.
+// 'free' is never stored — it is what an expired trial resolves to at read
+// time via effectiveTier(). There is deliberately no 'starter': it was in this
+// list for months while being impossible to store, because the CHECK rejects it.
+export type Tier = 'trial' | 'free' | 'basic' | 'pro' | 'premium';
 
 interface TierLimits {
   maxTeams: number;
@@ -16,22 +20,40 @@ interface TierLimits {
 }
 
 const TIER_LIMITS: Record<Tier, TierLimits> = {
-  // 14-day full-featured trial (all features, becomes free on expiry)
+  // 14-day full-featured trial. Expiry is enforced by effectiveTier(), which
+  // resolves a trialing org past trial_ends_at down to 'free'.
   trial: {
-    maxTeams: 20,
+    maxTeams: Infinity,
     maxLeagues: 1,
     maxSeasonsHistory: -1,
     hasPlayerStats: true,
     hasPhotoUpload: true,
     hasHallOfFame: true,
     hasHeadToHead: true,
+    // SMS is not sold on any paid plan — see the SMS decision in project
+    // notes. It stays on for trial so it remains testable in-house.
     hasSmsSubmission: true,
     hasMmsSubmission: true,
     hasOcrScanning: true,
+    hasCustomBranding: true,
+  },
+  // What an expired trial falls back to. Never stored in the DB.
+  // Must stay strictly weaker than Basic, or there is no reason to pay $5.
+  free: {
+    maxTeams: 5,
+    maxLeagues: 1,
+    maxSeasonsHistory: 0,
+    hasPlayerStats: false,
+    hasPhotoUpload: false,
+    hasHallOfFame: false,
+    hasHeadToHead: false,
+    hasSmsSubmission: false,
+    hasMmsSubmission: false,
+    hasOcrScanning: false,
     hasCustomBranding: false,
   },
-  // Free tier — $0/mo
-  free: {
+  // Basic — $5/mo, $54/yr (Stripe price_1Suf0H…)
+  basic: {
     maxTeams: 10,
     maxLeagues: 1,
     maxSeasonsHistory: 0,
@@ -44,41 +66,13 @@ const TIER_LIMITS: Record<Tier, TierLimits> = {
     hasOcrScanning: false,
     hasCustomBranding: false,
   },
-  // Starter tier — $19/mo
-  starter: {
-    maxTeams: Infinity,
+  // Pro — $10/mo, $108/yr (Stripe price_1SufOZ…)
+  pro: {
+    maxTeams: 20,
     maxLeagues: 1,
     maxSeasonsHistory: 3,
     hasPlayerStats: true,
     hasPhotoUpload: true,
-    hasHallOfFame: false,
-    hasHeadToHead: false,
-    hasSmsSubmission: true,
-    hasMmsSubmission: false,
-    hasOcrScanning: true,
-    hasCustomBranding: false,
-  },
-  // Pro tier — $39/mo (multi-league, MMS, branding)
-  pro: {
-    maxTeams: Infinity,
-    maxLeagues: -1,
-    maxSeasonsHistory: -1,
-    hasPlayerStats: true,
-    hasPhotoUpload: true,
-    hasHallOfFame: true,
-    hasHeadToHead: true,
-    hasSmsSubmission: true,
-    hasMmsSubmission: true,
-    hasOcrScanning: true,
-    hasCustomBranding: true,
-  },
-  // Legacy aliases for backward compatibility
-  basic: {
-    maxTeams: 10,
-    maxLeagues: 1,
-    maxSeasonsHistory: 0,
-    hasPlayerStats: false,
-    hasPhotoUpload: false,
     hasHallOfFame: false,
     hasHeadToHead: false,
     hasSmsSubmission: false,
@@ -86,6 +80,8 @@ const TIER_LIMITS: Record<Tier, TierLimits> = {
     hasOcrScanning: true,
     hasCustomBranding: false,
   },
+  // Premium — $20/mo, $216/yr (Stripe price_1SufPk…)
+  // Previously identical to Pro, so $20 bought exactly what $10 bought.
   premium: {
     maxTeams: Infinity,
     maxLeagues: -1,
@@ -94,12 +90,43 @@ const TIER_LIMITS: Record<Tier, TierLimits> = {
     hasPhotoUpload: true,
     hasHallOfFame: true,
     hasHeadToHead: true,
-    hasSmsSubmission: true,
-    hasMmsSubmission: true,
+    hasSmsSubmission: false,
+    hasMmsSubmission: false,
     hasOcrScanning: true,
     hasCustomBranding: true,
   },
 };
+
+/**
+ * The tier that should actually be enforced right now.
+ *
+ * Nothing in the product ever expired a trial: no cron job, no status flip,
+ * and trial_ends_at was read nowhere outside of display. Every signup kept
+ * full trial features indefinitely, so nobody ever had a reason to subscribe.
+ * Deriving expiry here instead of relying on a background job means the state
+ * cannot drift and there is no job to monitor.
+ */
+export function effectiveTier(org: {
+  subscription_tier?: string | null;
+  subscription_status?: string | null;
+  trial_ends_at?: string | null;
+} | null | undefined): Tier {
+  const tier = (org?.subscription_tier as Tier) || 'trial';
+  if (tier !== 'trial') return tier;
+  if (org?.subscription_status && org.subscription_status !== 'trialing') return tier;
+  const endsAt = org?.trial_ends_at;
+  if (endsAt && new Date(endsAt).getTime() < Date.now()) return 'free';
+  return 'trial';
+}
+
+/** True when a trial has run out and the org is on free as a result. */
+export function isTrialExpired(org: {
+  subscription_tier?: string | null;
+  subscription_status?: string | null;
+  trial_ends_at?: string | null;
+} | null | undefined): boolean {
+  return (org?.subscription_tier ?? 'trial') === 'trial' && effectiveTier(org) === 'free';
+}
 
 export function getTierLimits(tier: string | undefined | null): TierLimits {
   return TIER_LIMITS[(tier as Tier) || 'trial'] || TIER_LIMITS.trial;

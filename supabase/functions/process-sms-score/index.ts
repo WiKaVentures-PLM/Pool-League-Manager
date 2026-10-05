@@ -201,7 +201,9 @@ Deno.serve(async (req: Request) => {
     .select('subscription_tier, subscription_status')
     .eq('id', orgId)
     .maybeSingle();
-  const SMS_TIERS = ['trial', 'pro', 'premium'];
+  // SMS is not sold on any paid plan; it stays available on trial so it can
+  // be tested in-house. Keep in step with hasSmsSubmission in features.ts.
+  const SMS_TIERS = ['trial'];
   if (!org || !SMS_TIERS.includes(org.subscription_tier || '')) {
     return await fail(supabase, sms_id, fromPhone, 'SMS submission not available on current plan',
       'SMS score submission is not available on your league\'s current plan. Ask your admin to upgrade.');

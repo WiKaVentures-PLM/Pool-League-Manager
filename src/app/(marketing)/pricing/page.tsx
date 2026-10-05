@@ -6,8 +6,27 @@ const plans = [
     name: 'Free',
     price: '$0',
     period: 'forever',
-    description: 'Perfect for small leagues just getting started.',
+    description: 'What your league falls back to after the trial ends.',
     cta: 'Get Started',
+    ctaHref: '/signup',
+    highlight: false,
+    features: [
+      { label: '1 league', included: true },
+      { label: 'Up to 5 teams', included: true },
+      { label: 'Web score entry', included: true },
+      { label: 'Auto schedule generation', included: true },
+      { label: 'Live standings', included: true },
+      { label: 'Player stats', included: false },
+      { label: 'Photo scoresheet scanning', included: false },
+      { label: 'Season history', included: false },
+    ],
+  },
+  {
+    name: 'Basic',
+    price: '$5',
+    period: '/month',
+    description: 'For a single league that just needs scheduling and standings.',
+    cta: 'Start Free Trial',
     ctaHref: '/signup',
     highlight: false,
     features: [
@@ -17,48 +36,47 @@ const plans = [
       { label: 'Auto schedule generation', included: true },
       { label: 'Live standings', included: true },
       { label: 'Player stats', included: false },
-      { label: 'Season history', included: false },
-      { label: 'Custom branding', included: false },
+      { label: 'Photo scoresheet scanning', included: false },
+      { label: 'Current season only', included: true },
     ],
   },
   {
-    name: 'Starter',
-    price: '$19',
+    name: 'Pro',
+    price: '$10',
     period: '/month',
-    description: 'For growing leagues that need unlimited teams and full stats.',
+    description: 'Player stats, photo scoresheets, and three years of history.',
     cta: 'Start Free Trial',
     ctaHref: '/signup',
     highlight: true,
     badge: 'Most Popular',
     features: [
       { label: '1 league', included: true },
-      { label: 'Unlimited teams', included: true },
+      { label: 'Up to 20 teams', included: true },
       { label: 'Web score entry', included: true },
       { label: 'Auto schedule generation', included: true },
       { label: 'Live standings', included: true },
       { label: 'Player stats', included: true },
+      { label: 'Photo scoresheet scanning', included: true },
       { label: '3 years season history', included: true },
-      { label: 'Custom branding', included: false },
-      { label: 'Priority support', included: true },
     ],
   },
   {
-    name: 'Pro',
-    price: '$39',
+    name: 'Premium',
+    price: '$20',
     period: '/month',
-    description: 'Run multiple leagues with full photo submission and branding.',
+    description: 'Multiple leagues, unlimited history, and the extras.',
     cta: 'Start Free Trial',
     ctaHref: '/signup',
     highlight: false,
     features: [
       { label: 'Multiple leagues', included: true },
       { label: 'Unlimited teams', included: true },
-      { label: 'Web score entry', included: true },
-      { label: 'Auto schedule generation', included: true },
-      { label: 'Live standings', included: true },
       { label: 'Player stats + Head-to-Head', included: true },
+      { label: 'Photo scoresheet scanning', included: true },
       { label: 'Unlimited season history', included: true },
+      { label: 'Hall of Fame', included: true },
       { label: 'Custom branding', included: true },
+      { label: 'Priority support', included: true },
     ],
   },
 ];
@@ -99,7 +117,7 @@ export default function PricingPage() {
 
       {/* Plans */}
       <section className="pb-24 px-4">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6 items-stretch">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -157,6 +175,7 @@ export default function PricingPage() {
 
         <p className="text-center text-slate-500 mt-8 text-sm">
           All plans include a 14-day free trial with full features. No credit card required.
+          Annual billing saves about two months: $54, $108 and $216 a year.
         </p>
       </section>
 
@@ -172,7 +191,7 @@ export default function PricingPage() {
               },
               {
                 q: 'What counts as a "league"?',
-                a: 'Each pool league you organize is one league. A single bar or venue usually has one league. The Pro plan is for operators running multiple independent leagues.',
+                a: 'Each pool league you organize is one league. A single bar or venue usually has one league. The Premium plan is for operators running multiple independent leagues.',
               },
               {
                 q: 'What happens after the trial?',

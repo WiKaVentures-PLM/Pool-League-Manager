@@ -13,7 +13,7 @@ const PLANS = [
     name: 'Basic',
     monthlyPrice: 5,
     annualPrice: 54,
-    features: ['Up to 10 teams', 'Basic standings', 'Current season only'],
+    features: ['1 league', 'Up to 10 teams', 'Live standings', 'Current season only'],
   },
   {
     id: 'pro',
@@ -21,14 +21,14 @@ const PLANS = [
     monthlyPrice: 10,
     annualPrice: 108,
     popular: true,
-    features: ['Up to 20 teams', 'Full stats', '3 years history', 'Photo upload'],
+    features: ['1 league', 'Up to 20 teams', 'Player stats', 'Photo scoresheet scanning', '3 years history'],
   },
   {
     id: 'premium',
     name: 'Premium',
     monthlyPrice: 20,
     annualPrice: 216,
-    features: ['Unlimited teams', 'All-time history', 'Hall of Fame', 'Head-to-head'],
+    features: ['Multiple leagues', 'Unlimited teams', 'All-time history', 'Hall of Fame', 'Head-to-head', 'Custom branding'],
   },
 ];
 
