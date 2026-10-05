@@ -6,12 +6,57 @@ import { getActiveOrgContext } from '@/lib/auth/active-org';
 
 export const runtime = 'nodejs';
 
+// ─── H7: In-memory rate limiter — 10 OCR requests per user per hour ───
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+// Map<userId, timestamp[]>
+const rateLimitMap = new Map<string, number[]>();
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const timestamps = rateLimitMap.get(userId) ?? [];
+
+  // Prune timestamps older than the window
+  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+
+  if (recent.length >= RATE_LIMIT_MAX) {
+    rateLimitMap.set(userId, recent);
+    return true;
+  }
+
+  recent.push(now);
+  rateLimitMap.set(userId, recent);
+  return false;
+}
+
+// Periodic cleanup to prevent memory leaks (every 10 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, timestamps] of rateLimitMap.entries()) {
+    const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+    if (recent.length === 0) {
+      rateLimitMap.delete(userId);
+    } else {
+      rateLimitMap.set(userId, recent);
+    }
+  }
+}, 10 * 60 * 1000).unref?.();
+
 export async function POST(request: NextRequest) {
   // Authenticate
   const supabase = createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Rate limit check (H7)
+  if (isRateLimited(user.id)) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Maximum 10 OCR requests per hour. Please try again later.' },
+      { status: 429 },
+    );
   }
 
   // Verify org membership and role
