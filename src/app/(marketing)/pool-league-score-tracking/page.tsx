@@ -38,7 +38,7 @@ export default function PoolLeagueScoreTracking() {
             Pool League Score Tracking: From Paper Scoresheets to Digital
           </h1>
           <p className="text-xl text-slate-500 leading-relaxed">
-            Every pool league lives and dies by its score tracking. Get scores recorded accurately and standings will take care of themselves. But for most independent leagues, score tracking means paper scoresheets, text messages, and a league organizer spending hours every week doing data entry. It does not have to be that way.
+            Every pool league lives and dies by its score tracking. Get scores recorded accurately and standings will take care of themselves. But for most independent leagues, score tracking means paper scoresheets and a league organizer spending hours every week doing data entry. It does not have to be that way.
           </p>
         </header>
 
@@ -57,11 +57,6 @@ export default function PoolLeagueScoreTracking() {
             <li><strong>Organizer burnout</strong> — the weekly grind of collecting, entering, and verifying scores is the single biggest reason league organizers quit. And when the organizer quits, the league often dies with them.</li>
             <li><strong>No player-level stats</strong> — paper tracking almost never includes individual player win/loss records because the data entry burden would be enormous.</li>
           </ul>
-
-          <h2 className="text-2xl font-bold text-slate-800 mt-12 mb-4">The Text Message Workaround</h2>
-          <p className="text-slate-600 leading-relaxed mb-6">
-            Some leagues tried to modernize by having captains text or WhatsApp the scores to the organizer. This eliminates lost paper but creates a new mess: scores arrive in inconsistent formats ("we won 9-6" versus a photo of a napkin), the organizer is still manually entering everything, and text threads become impossible to search when a dispute arises three weeks later. Group texts also tend to spiral into off-topic conversations that bury the actual score reports.
-          </p>
 
           <h2 className="text-2xl font-bold text-slate-800 mt-12 mb-4">Web-Based Score Submission</h2>
           <p className="text-slate-600 leading-relaxed mb-6">

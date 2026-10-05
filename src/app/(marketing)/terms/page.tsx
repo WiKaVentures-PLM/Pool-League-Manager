@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Terms of Service | Pool League Manager',
   description:
-    'The terms that govern your use of Pool League Manager, including subscriptions and our SMS messaging program.',
+    'The terms that govern your use of Pool League Manager, including subscriptions.',
 };
 
 const LAST_UPDATED = 'October 4, 2026';
@@ -56,8 +56,8 @@ export default function TermsPage() {
             <p>
               Pool League Manager lets a league administrator create a league, add teams and
               players, generate schedules, collect match scores, and publish standings. Scores can
-              be entered on the web, submitted as a photo in the app, or — on plans that include it
-              — texted to a league phone number. Features available to you depend on your plan.
+              be entered on the web or submitted as a photo in the app. Features available to you
+              depend on your plan.
             </p>
           </section>
 
@@ -84,9 +84,6 @@ export default function TermsPage() {
             <ul className="space-y-2 list-disc pl-5">
               <li>use the service to send unsolicited, unlawful, or harassing messages;</li>
               <li>
-                enter a phone number for text messaging without that person&rsquo;s permission;
-              </li>
-              <li>
                 attempt to access another league&rsquo;s data, or probe, scan, or interfere with the
                 service;
               </li>
@@ -98,54 +95,8 @@ export default function TermsPage() {
             </p>
           </section>
 
-          {/* SMS terms — reviewed by mobile carriers alongside the privacy policy. */}
-          <section className="rounded-2xl border border-emerald-800 bg-emerald-950/40 p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">4. Text messaging terms</h2>
-            <p className="mb-4">
-              If your league uses text message score submission, these terms apply to those
-              messages:
-            </p>
-            <ul className="space-y-3 list-disc pl-5">
-              <li>
-                <span className="text-white font-semibold">You start the conversation.</span> You
-                opt in by texting your league&rsquo;s number, normally with a photo of your
-                completed scoresheet. We reply only to numbers that have texted us.
-              </li>
-              <li>
-                <span className="text-white font-semibold">What we send.</span> Transactional
-                confirmations about the scores you submitted. No marketing or promotional messages
-                are sent through this program.
-              </li>
-              <li>
-                <span className="text-white font-semibold">Frequency.</span> Varies with your score
-                submissions, typically one or two messages per match night.
-              </li>
-              <li>
-                <span className="text-white font-semibold">Rates.</span> Message and data rates may
-                apply. Your carrier&rsquo;s standard charges are your responsibility.
-              </li>
-              <li>
-                <span className="text-white font-semibold">Opt out.</span> Reply{' '}
-                <span className="text-white font-mono">STOP</span> at any time to stop messages,{' '}
-                <span className="text-white font-mono">START</span> to resume, or{' '}
-                <span className="text-white font-mono">HELP</span> for help. Opting out of texts
-                does not close your account; you can still enter scores on the web.
-              </li>
-              <li>
-                <span className="text-white font-semibold">Delivery.</span> Mobile carriers are not
-                liable for delayed or undelivered messages. We cannot guarantee delivery.
-              </li>
-              <li>
-                <span className="text-white font-semibold">Automated reading of photos.</span>{' '}
-                Scoresheet photos are read automatically and may be misread. Submitted scores are
-                subject to confirmation by the opposing captain or review by your league
-                administrator.
-              </li>
-            </ul>
-          </section>
-
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">5. Plans, trials, and billing</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">4. Plans, trials, and billing</h2>
             <ul className="space-y-2 list-disc pl-5">
               <li>
                 Paid plans are billed monthly in advance through Stripe. By subscribing you
@@ -171,7 +122,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">6. Your data</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">5. Your data</h2>
             <p>
               Your league&rsquo;s data is yours. We claim no ownership of the team, player, score,
               or schedule information you enter, and we use it to operate the service as described
@@ -188,7 +139,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">7. Our intellectual property</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">6. Our intellectual property</h2>
             <p>
               The software, design, and brand of Pool League Manager remain ours. These terms grant
               you a limited, non-exclusive, non-transferable right to use the service while your
@@ -197,7 +148,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">8. Availability</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">7. Availability</h2>
             <p>
               We aim to keep the service available but do not promise uninterrupted operation. We
               may change, suspend, or discontinue features, and we rely on third-party providers for
@@ -206,7 +157,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">9. Disclaimer</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">8. Disclaimer</h2>
             <p>
               The service is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo;, without
               warranties of any kind, whether express or implied, including fitness for a particular
@@ -217,7 +168,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">10. Limitation of liability</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">9. Limitation of liability</h2>
             <p>
               To the fullest extent permitted by law, we are not liable for indirect, incidental,
               special, or consequential damages, or for lost data or lost profits. Our total
@@ -227,7 +178,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">11. Changes to these terms</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">10. Changes to these terms</h2>
             <p>
               We may update these terms. The date at the top of this page will change, and for
               material changes we will notify account holders by email. Continuing to use the
@@ -236,7 +187,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">12. Governing law</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">11. Governing law</h2>
             <p>
               These terms are governed by the laws of the State of Iowa, United States, without
               regard to its conflict-of-laws rules. Disputes will be brought in the state or federal
@@ -245,7 +196,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold text-white mb-4">13. Contact</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">12. Contact</h2>
             <p>
               Questions about these terms? Email{' '}
               <a
