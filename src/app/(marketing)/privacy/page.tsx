@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Privacy Policy | Pool League Manager',
   description:
-    'How Pool League Manager collects, uses, and protects your information.',
+    'How Pool League Manager collects, uses, and protects your information, including our SMS messaging program.',
 };
 
 const LAST_UPDATED = 'October 4, 2026';
@@ -47,7 +47,8 @@ export default function PrivacyPage() {
               software that amateur pool and billiards leagues use to manage teams, schedules,
               scores, and standings. This policy explains what information we collect, why we
               collect it, and what choices you have. It applies to{' '}
-              <span className="text-white">pool-league-manager.com</span>.
+              <span className="text-white">pool-league-manager.com</span> and to our SMS messaging
+              program.
             </p>
           </section>
 
@@ -61,8 +62,8 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <span className="text-white font-semibold">Mobile phone numbers.</span> League
-                administrators and team captains may provide a mobile number as part of their
-                account profile.
+                administrators and team captains may provide a mobile number so that scores can be
+                submitted and confirmed by text message. See the SMS section below.
               </li>
               <li>
                 <span className="text-white font-semibold">League data.</span> Team names, player
@@ -71,8 +72,8 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <span className="text-white font-semibold">Scoresheet images.</span> If you submit
-                scores by photo uploaded in the app, we process that image to read the scores from
-                it.
+                scores by photo &mdash; either uploaded in the app or texted to your league&rsquo;s
+                number &mdash; we process that image to read the scores from it.
               </li>
               <li>
                 <span className="text-white font-semibold">Billing information.</span> If your
@@ -91,16 +92,68 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-bold text-white mb-4">How we use information</h2>
             <p className="mb-3">We use the information above to:</p>
             <ul className="space-y-2 list-disc pl-5">
-              <li>operate your league — record scores, generate schedules, and compute standings;</li>
+              <li>operate your league &mdash; record scores, generate schedules, and compute standings;</li>
               <li>authenticate you and keep your league&rsquo;s data separated from other leagues;</li>
               <li>
-                send transactional emails, such as billing receipts and account notifications;
+                send transactional messages, such as confirming that a scoresheet you texted in was
+                received and recorded;
               </li>
               <li>process subscription payments and send billing receipts;</li>
               <li>diagnose problems, prevent abuse, and improve the service.</li>
             </ul>
             <p className="mt-4">
               We do not use your information for advertising, and we do not sell it.
+            </p>
+          </section>
+
+          {/* SMS program — this section is what mobile carriers review. */}
+          <section className="rounded-2xl border border-emerald-800 bg-emerald-950/40 p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">
+              SMS messaging program and mobile information
+            </h2>
+            <p className="mb-4">
+              Some leagues use our text message score submission feature. Here is exactly how it
+              works:
+            </p>
+            <ul className="space-y-3 list-disc pl-5">
+              <li>
+                <span className="text-white font-semibold">How you opt in.</span> Messaging is
+                started by you, not by us. Your league administrator gives team captains the
+                league&rsquo;s phone number. You opt in by texting that number &mdash; typically a photo
+                of your completed match scoresheet. That text is your consent to receive a reply.
+              </li>
+              <li>
+                <span className="text-white font-semibold">What we send.</span> Only transactional
+                replies to a message you sent us. For example, a confirmation that your scores were
+                received and auto-approved, a note that we are waiting on the opposing captain, or
+                a request for a clearer photo. We do not send marketing or promotional texts, and
+                we do not text a number that has not texted us first.
+              </li>
+              <li>
+                <span className="text-white font-semibold">Message frequency.</span> Varies by how
+                often you submit scores &mdash; typically one or two messages per match night.
+              </li>
+              <li>
+                <span className="text-white font-semibold">Cost.</span> Message and data rates may
+                apply. We do not charge you for texts; your mobile carrier&rsquo;s standard rates
+                apply.
+              </li>
+              <li>
+                <span className="text-white font-semibold">How to opt out.</span> Reply{' '}
+                <span className="text-white font-mono">STOP</span> to any message to stop receiving
+                texts. Reply <span className="text-white font-mono">START</span> to resume. Reply{' '}
+                <span className="text-white font-mono">HELP</span> for help.
+              </li>
+              <li>
+                <span className="text-white font-semibold">Carriers.</span> Mobile carriers are not
+                liable for delayed or undelivered messages.
+              </li>
+            </ul>
+            <p className="mt-5 text-white font-semibold">
+              We do not share, sell, rent, or lease your mobile phone number, or your consent to
+              receive text messages, to any third party or affiliate for their own marketing or
+              promotional purposes. Phone numbers are shared only with the messaging provider that
+              delivers our texts, solely so that delivery can happen.
             </p>
           </section>
 
@@ -112,18 +165,22 @@ export default function PrivacyPage() {
             </p>
             <ul className="space-y-2 list-disc pl-5">
               <li>
-                <span className="text-white font-semibold">Supabase</span> — database, file storage,
+                <span className="text-white font-semibold">Supabase</span> &mdash; database, file storage,
                 and authentication.
               </li>
               <li>
-                <span className="text-white font-semibold">Vercel</span> — application hosting.
+                <span className="text-white font-semibold">Vercel</span> &mdash; application hosting.
               </li>
               <li>
-                <span className="text-white font-semibold">Anthropic</span> — reading the scores off
+                <span className="text-white font-semibold">Twilio</span> &mdash; delivery of text messages
+                to and from your league&rsquo;s number.
+              </li>
+              <li>
+                <span className="text-white font-semibold">Anthropic</span> &mdash; reading the scores off
                 a scoresheet image you submit.
               </li>
               <li>
-                <span className="text-white font-semibold">Stripe</span> — subscription billing and
+                <span className="text-white font-semibold">Stripe</span> &mdash; subscription billing and
                 payment processing.
               </li>
             </ul>
@@ -148,6 +205,10 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-bold text-white mb-4">Your choices</h2>
             <ul className="space-y-2 list-disc pl-5">
               <li>Update your name, email, or phone number in your account settings.</li>
+              <li>
+                Stop text messages at any time by replying{' '}
+                <span className="text-white font-mono">STOP</span>.
+              </li>
               <li>Request a copy of your data, or its deletion, by emailing us.</li>
             </ul>
           </section>
@@ -157,7 +218,7 @@ export default function PrivacyPage() {
             <p>
               The service is not directed to children under 13, and we do not knowingly collect
               their information. Leagues that include minors should have a parent or guardian manage
-              the account.
+              the account and any phone number used for score submission.
             </p>
           </section>
 
