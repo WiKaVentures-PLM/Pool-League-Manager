@@ -1,7 +1,7 @@
 'use server';
 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { isOrgReadOnly, getTierLimits, canAddTeam, effectiveTier } from './features';
+import { isOrgReadOnly, getTierLimits, canAddTeam, effectiveTier, hasFeature } from './features';
 
 const READ_ONLY_MSG =
   'Your account is past due. Please update your payment to continue making changes.';
@@ -128,6 +128,38 @@ export async function checkSmsAccess(orgId: string): Promise<string | null> {
     // SMS is not sold on any plan right now, so this is deliberately not an
     // upgrade prompt.
     return 'SMS score submission is not available on your plan.';
+  }
+
+  return null;
+}
+
+/**
+ * H12: Generic feature gate — checks whether the org's effective tier
+ * enables a boolean feature flag. Use this for any tier-gated feature
+ * that doesn't have a dedicated check above.
+ *
+ * @param orgId  Organization UUID
+ * @param feature  Boolean key from TierLimits (e.g. 'hasOcrScanning')
+ * @param label  Human-readable name shown in the error message
+ * @returns Error string if the feature is not available, null if allowed
+ */
+export async function checkFeatureGate(
+  orgId: string,
+  feature: 'hasPlayerStats' | 'hasPhotoUpload' | 'hasHallOfFame' | 'hasHeadToHead' | 'hasSmsSubmission' | 'hasMmsSubmission' | 'hasOcrScanning' | 'hasCustomBranding',
+  label: string,
+): Promise<string | null> {
+  const supabase = createServerSupabaseClient();
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('subscription_tier, subscription_status, trial_ends_at')
+    .eq('id', orgId)
+    .single();
+
+  if (!org) return null;
+
+  const tier = effectiveTier(org);
+  if (!hasFeature(tier, feature)) {
+    return `${label} is not available on your current plan. Upgrade in Settings > Billing.`;
   }
 
   return null;
