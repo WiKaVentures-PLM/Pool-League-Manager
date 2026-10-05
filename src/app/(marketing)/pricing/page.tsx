@@ -1,5 +1,19 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Check, X } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Pricing — Pool League Manager',
+  description:
+    'Pool League Manager pricing: Free forever for small leagues, $5/mo Basic, $10/mo Pro with player stats and photo scoresheet scanning, $20/mo Premium with multiple leagues. No hidden fees.',
+  alternates: { canonical: '/pricing' },
+  openGraph: {
+    title: 'Pricing — Pool League Manager',
+    description:
+      'Start free. Upgrade when you need more teams, player stats, or multiple leagues. Plans from $0 to $20/month.',
+    url: 'https://pool-league-manager.com/pricing',
+  },
+};
 
 const plans = [
   {
@@ -127,7 +141,7 @@ export default function PricingPage() {
                   : 'border-slate-700 bg-slate-800/50'
               } p-8`}
             >
-              {plan.badge && (
+              {'badge' in plan && plan.badge && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full uppercase tracking-wide">
                     {plan.badge}
@@ -197,6 +211,10 @@ export default function PricingPage() {
                 q: 'What happens after the trial?',
                 a: 'After 14 days your league moves to the Free plan automatically. No surprise charges. Upgrade whenever you need more features.',
               },
+              {
+                q: 'How does photo scoresheet scanning work?',
+                a: 'Take a photo of your paper scoresheet with your phone. Our AI-powered OCR reads the handwriting, extracts the scores, and lets you confirm before submitting. Available on Pro and Premium plans.',
+              },
             ].map(({ q, a }) => (
               <div key={q} className="border-b border-slate-800 pb-6">
                 <h3 className="font-bold text-white mb-2">{q}</h3>
@@ -220,7 +238,7 @@ export default function PricingPage() {
       </section>
 
       <footer className="border-t border-slate-800 py-8 px-4 text-center text-slate-600 text-sm">
-        &copy; {new Date().getFullYear()} Pool League Manager. All rights reserved.{' '}
+        © {new Date().getFullYear()} Pool League Manager. All rights reserved.{' '}
         <Link href="/" className="hover:text-slate-400 transition-colors">
           Back to home
         </Link>
