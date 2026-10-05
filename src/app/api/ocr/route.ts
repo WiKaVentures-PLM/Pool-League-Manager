@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
     .from('memberships')
     .select('org_id, role')
     .eq('profile_id', profile.id)
-    .single();
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
   if (!membership) {
     return NextResponse.json({ error: 'No organization membership' }, { status: 403 });
   }

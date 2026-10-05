@@ -22,7 +22,9 @@ async function getAuth() {
     .from('memberships')
     .select('org_id, role')
     .eq('profile_id', profile.id)
-    .single();
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
   if (!membership) return null;
 
   return { profileId: profile.id, orgId: membership.org_id, role: membership.role };

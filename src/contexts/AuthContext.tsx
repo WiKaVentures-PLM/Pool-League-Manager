@@ -45,13 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Load membership with org
+    // Load membership with org. Ordered by created_at so that when a profile
+    // belongs to more than one league, the client and the server actions pick
+    // the SAME one — an unordered limit(1) could disagree and silently act on
+    // a different league than the UI is showing.
     const { data: membership } = await supabase
       .from('memberships')
       .select('*, organization:organizations(*)')
       .eq('profile_id', profile.id)
+      .order('created_at', { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const org = membership
       ? (membership as Membership & { organization: Organization }).organization
