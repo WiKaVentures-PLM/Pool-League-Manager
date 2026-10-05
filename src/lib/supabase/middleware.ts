@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Routes that require admin role — non-admins are redirected to /dashboard
+const ADMIN_ROUTES = ['/admin', '/settings'];
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -55,6 +58,44 @@ export async function updateSession(request: NextRequest) {
 
   if (user && (pathname === '/login' || pathname === '/signup')) {
     return redirectTo('/dashboard');
+  }
+
+  // ─── H11: Role-based route protection ───
+  // Admin and settings routes require the admin role.
+  // We check the user's membership role in their active org.
+  if (user) {
+    const isAdminRoute = ADMIN_ROUTES.some(p =>
+      pathname === p || pathname.startsWith(p + '/')
+    );
+
+    if (isAdminRoute) {
+      // Look up the user's profile and active org membership
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, active_org_id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (profile) {
+        const { data: memberships } = await supabase
+          .from('memberships')
+          .select('org_id, role')
+          .eq('profile_id', profile.id)
+          .order('created_at', { ascending: true });
+
+        if (memberships && memberships.length > 0) {
+          const chosen =
+            memberships.find(m => m.org_id === profile.active_org_id) ?? memberships[0];
+
+          if (chosen.role !== 'admin') {
+            return redirectTo('/dashboard');
+          }
+        } else {
+          // No membership at all — redirect to onboarding or dashboard
+          return redirectTo('/dashboard');
+        }
+      }
+    }
   }
 
   return supabaseResponse;
