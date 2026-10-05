@@ -1,21 +1,22 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrg } from '@/contexts/OrgContext';
 import { LogOut, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
 export function Header() {
-  const router = useRouter();
   const { profile, organization, signOut } = useAuth();
   const { currentSeason, allSeasons, switchSeason } = useOrg();
   const [showSeasons, setShowSeasons] = useState(false);
 
   async function handleSignOut() {
     await signOut();
-    router.push('/login');
-    router.refresh();
+    // Full document navigation rather than router.push: it guarantees the
+    // middleware re-reads cookies on a fresh request and drops all client
+    // state. A soft push here would 307 straight back to /dashboard if any
+    // stale session survived.
+    window.location.assign('/login');
   }
 
   return (

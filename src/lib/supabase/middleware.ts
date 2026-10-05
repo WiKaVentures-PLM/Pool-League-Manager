@@ -38,12 +38,23 @@ export async function updateSession(request: NextRequest) {
     pathname === p || pathname.startsWith(p + '/')
   );
 
+  // A bare NextResponse.redirect() starts with no cookies, so any tokens
+  // Supabase refreshed during this request would be silently discarded —
+  // logging the user out at random. Carry them onto the redirect.
+  function redirectTo(path: string) {
+    const response = NextResponse.redirect(new URL(path, request.url));
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie);
+    });
+    return response;
+  }
+
   if (!user && !isPublicPath) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return redirectTo('/login');
   }
 
   if (user && (pathname === '/login' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return redirectTo('/dashboard');
   }
 
   return supabaseResponse;

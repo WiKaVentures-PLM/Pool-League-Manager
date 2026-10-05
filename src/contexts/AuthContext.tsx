@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { logout } from '@/app/(auth)/login/actions';
 import type { Profile, Membership, Organization } from '@/types';
 import type { User } from '@supabase/supabase-js';
 
@@ -75,16 +76,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    // Sign out on the server. The auth cookie is what middleware trusts, and
+    // deleting it server-side needs no browser Web Lock, so this cannot be
+    // aborted by lock contention the way the client-side signOut() could.
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Server sign-out failed:', err);
+    }
+
+    // Best effort local cleanup so in-memory state and any cached session go
+    // away too. Scoped 'local' to skip the network call the server just made.
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      console.error('Local sign-out cleanup failed:', err);
+    }
+
     setState({ user: null, profile: null, membership: null, organization: null, loading: false });
   }
 
   useEffect(() => {
     refreshAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // NOTE: this callback must NOT be async, and must not await anything.
+    // onAuthStateChange runs the callback inside gotrue's exclusive auth lock
+    // (auth-js marks the async overload @deprecated for this reason). Awaiting
+    // loadUserData() here held that lock across three DB round trips, which
+    // starved every other auth call — signOut() in particular would time out,
+    // get its lock stolen, and abort before it ever cleared the session. So
+    // defer the work to a fresh task, after the lock has been released.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        await loadUserData(session.user);
+        const user = session.user;
+        setTimeout(() => { void loadUserData(user); }, 0);
       } else if (event === 'SIGNED_OUT') {
         setState({ user: null, profile: null, membership: null, organization: null, loading: false });
       }
