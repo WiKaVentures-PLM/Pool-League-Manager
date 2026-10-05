@@ -6,6 +6,8 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   is_super_admin: boolean;
+  /** League the user chose to act in; drives auth_org_id() and all RLS. */
+  active_org_id: string | null;
   created_at: string;
   updated_at: string;
 }

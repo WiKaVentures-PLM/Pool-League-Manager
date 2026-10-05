@@ -5,29 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { validateMatchups, type MatchupInput } from '@/lib/validation/score-validation';
 import { notifyScoreSubmitted, notifyAdminConflict, notifyBothTeamsApproved } from '@/lib/email/notifications';
 import { checkOrgWriteAccess } from '@/lib/subscription/server-gate';
+import { getActiveOrgContext } from '@/lib/auth/active-org';
 
+// Resolves the league the user has SELECTED (see getActiveOrgContext),
+// not whichever membership happens to come first. Keeps this in step with
+// auth_org_id() so RLS and the action agree on the league.
 async function getAuth() {
-  const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-  if (!profile) return null;
-
-  const { data: membership } = await supabase
-    .from('memberships')
-    .select('org_id, role')
-    .eq('profile_id', profile.id)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (!membership) return null;
-
-  return { profileId: profile.id, orgId: membership.org_id, role: membership.role };
+  return await getActiveOrgContext();
 }
 
 export async function submitScores(data: {

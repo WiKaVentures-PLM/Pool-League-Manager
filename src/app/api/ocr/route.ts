@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { parseScoresheetImage } from '@/lib/ocr/parse-scoresheet';
 import { hasFeature, isOrgReadOnly, effectiveTier } from '@/lib/subscription/features';
+import { getActiveOrgContext } from '@/lib/auth/active-org';
 
 export const runtime = 'nodejs';
 
@@ -23,13 +24,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Profile not found' }, { status: 403 });
   }
 
-  const { data: membership } = await supabase
-    .from('memberships')
-    .select('org_id, role')
-    .eq('profile_id', profile.id)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  // Use the league the user has selected, matching auth_org_id() and every
+  // server action, rather than whichever membership sorts first.
+  const membership = await getActiveOrgContext();
   if (!membership) {
     return NextResponse.json({ error: 'No organization membership' }, { status: 403 });
   }
@@ -43,7 +40,7 @@ export async function POST(request: NextRequest) {
   const { data: org } = await supabase
     .from('organizations')
     .select('subscription_tier, subscription_status, trial_ends_at')
-    .eq('id', membership.org_id)
+    .eq('id', membership.orgId)
     .single();
 
   if (!org || !hasFeature(effectiveTier(org), 'hasOcrScanning')) {

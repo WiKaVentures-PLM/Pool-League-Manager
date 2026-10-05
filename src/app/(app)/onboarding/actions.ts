@@ -3,29 +3,14 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { ScheduleWeek } from '@/lib/schedule/round-robin';
+import { getActiveAdminOrgId } from '@/lib/auth/active-org';
 
+// Resolves the league the user has SELECTED (see getActiveOrgContext),
+// not whichever membership happens to come first. Keeps this in step with
+// auth_org_id() so RLS and the action agree on the league.
 async function getAdminOrg() {
-  const supabase = createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-  if (!profile) return null;
-
-  const { data: membership } = await supabase
-    .from('memberships')
-    .select('org_id, role')
-    .eq('profile_id', profile.id)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (!membership || membership.role !== 'admin') return null;
-  return { orgId: membership.org_id };
+  const orgId = await getActiveAdminOrgId();
+  return orgId ? { orgId } : null;
 }
 
 export interface OnboardingTeam {

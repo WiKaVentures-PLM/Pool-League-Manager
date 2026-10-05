@@ -7,12 +7,14 @@ import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { ToastProvider } from '@/components/ui/Toast';
 import { PastDueBanner } from '@/components/PastDueBanner';
+import { LeagueChoiceGate } from '@/components/layout/LeagueChoiceGate';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <OrgProvider>
         <ToastProvider>
+          <LeagueChoiceGate />
           <div className="min-h-screen bg-slate-50">
             <Sidebar />
             <div className="md:pl-64">
