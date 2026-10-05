@@ -3,7 +3,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { validateMatchups, type MatchupInput } from '@/lib/validation/score-validation';
-import { checkOrgWriteAccess } from '@/lib/subscription/server-gate';
+import { checkOrgWriteAccess, checkSmsAccess } from '@/lib/subscription/server-gate';
 import { getActiveOrgContext } from '@/lib/auth/active-org';
 
 // Resolves the league the user has SELECTED (see getActiveOrgContext),
@@ -129,6 +129,10 @@ export async function processSmsScore(data: {
   if (!admin) return { error: 'Not authorized' };
   const writeErr = await checkOrgWriteAccess(admin.orgId);
   if (writeErr) return { error: writeErr };
+
+  // H12: Server-side tier check — verify org has SMS feature enabled
+  const smsErr = await checkSmsAccess(admin.orgId);
+  if (smsErr) return { error: smsErr };
 
   const supabase = createServerSupabaseClient();
 
