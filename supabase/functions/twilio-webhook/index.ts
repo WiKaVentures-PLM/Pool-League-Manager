@@ -5,10 +5,8 @@ import {
   CONSENT_GRANTED_BODY,
   CONSENT_GRANTED_WITH_HELD_BODY,
   CONSENT_PROMPT_BODY,
+  decideInboundAction,
   HELP_REPLY,
-  isHelp,
-  isOptIn,
-  isOptOut,
   normalizePhone,
   OPT_OUT_CONFIRMATION,
 } from '../_shared/sms.ts';
@@ -229,22 +227,24 @@ Deno.serve(async (req: Request) => {
   const supabase = createServiceClient();
   const phone = normalizePhone(fromPhone);
 
-  // --- Keyword handling, before anything else ------------------------------
-  // Twilio's Advanced Opt-Out intercepts STOP for US long codes before it ever
-  // reaches us, so this path is a backstop that also keeps our own ledger
-  // accurate when it does arrive.
-  if (isOptOut(body)) {
+  // What to do with this message. The decision (and critically its ordering)
+  // lives in _shared/sms.ts as a pure function so it is unit-tested; this
+  // handler only carries it out. Twilio's Advanced Opt-Out intercepts STOP for
+  // US long codes before it reaches us, so the opt-out branch is a backstop
+  // that also keeps our own ledger accurate when it does arrive.
+  const consent = await getConsentStatus(supabase, phone);
+  const action = decideInboundAction(body, consent);
+
+  if (action === 'revoke-and-confirm') {
     await revokeConsent(supabase, phone);
     return twimlRawResponse(OPT_OUT_CONFIRMATION);
   }
 
-  if (isHelp(body)) {
+  if (action === 'help-reply') {
     return twimlRawResponse(HELP_REPLY);
   }
 
-  const consent = await getConsentStatus(supabase, phone);
-
-  if (isOptIn(body)) {
+  if (action === 'grant-and-release') {
     await grantConsent(supabase, phone, messageSid, body);
     const released = await releaseHeldMessages(supabase, fromPhone);
     return twimlResponse(
@@ -252,19 +252,16 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // A number that opted out gets no reply at all — not even a consent prompt,
-  // which would both message someone who asked us to stop and resurrect their
-  // ledger row to 'pending'. Only an opt-in keyword (handled above) revives it.
-  if (consent === 'revoked') {
+  if (action === 'ignore-silently') {
     console.warn(`Inbound from opted-out number ${phone}; ignoring without reply.`);
     return twimlSilent();
   }
 
   // --- Consent gate --------------------------------------------------------
   // Carriers require explicit documented consent before we send to a number.
-  // Anything that is not already granted gets parked and prompted instead of
+  // Anything not already granted gets parked and prompted instead of
   // processed, so the scoresheet survives but no un-consented reply goes out.
-  const hasConsent = consent === 'granted';
+  const hasConsent = action === 'process';
 
   // Idempotency: insert row keyed on MessageSid. If Twilio retries (or
   // delivers the same MMS twice), the unique index makes the second insert

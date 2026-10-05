@@ -75,3 +75,38 @@ export const HELP_REPLY =
   'Pool League Manager: Text a photo of your match scoresheet to this number to submit ' +
   'your scores. For help, visit pool-league-manager.com or contact your league administrator. ' +
   'Msg & data rates may apply. Reply STOP to opt out.';
+
+// --- Inbound routing decision ------------------------------------------------
+// The order of these checks is compliance-critical: opt-out must beat
+// everything, and a revoked number must never be messaged — not even with a
+// consent prompt, which would both contact someone who asked us to stop and
+// resurrect their ledger row. Kept here as a pure function so it can be tested
+// without the Deno runtime; twilio-webhook only executes the result.
+
+export type ConsentStatus = 'pending' | 'granted' | 'revoked' | null;
+
+export type InboundAction =
+  /** Honour STOP: revoke consent, send the unsubscribe confirmation. */
+  | 'revoke-and-confirm'
+  /** Honour HELP: send the help reply, change nothing. */
+  | 'help-reply'
+  /** Honour YES/START: grant consent and release any parked scoresheets. */
+  | 'grant-and-release'
+  /** Opted out and not opting back in: reply with nothing at all. */
+  | 'ignore-silently'
+  /** Consented: queue the message for the scoresheet processor. */
+  | 'process'
+  /** Unknown or awaiting consent: park the message and ask for consent. */
+  | 'park-and-prompt';
+
+export function decideInboundAction(
+  body: string | null | undefined,
+  consent: ConsentStatus,
+): InboundAction {
+  if (isOptOut(body)) return 'revoke-and-confirm';
+  if (isHelp(body)) return 'help-reply';
+  // Checked before the revoked guard so an opted-out number can opt back in.
+  if (isOptIn(body)) return 'grant-and-release';
+  if (consent === 'revoked') return 'ignore-silently';
+  return consent === 'granted' ? 'process' : 'park-and-prompt';
+}
