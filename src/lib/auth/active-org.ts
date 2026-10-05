@@ -1,5 +1,8 @@
-'use server';
-
+// Server-only module. Deliberately NOT 'use server': that directive would
+// publish every export as a client-callable server action endpoint, which these
+// helpers have no business being. They are imported by server actions and route
+// handlers, and createServerSupabaseClient() uses next/headers, so this can only
+// ever run on the server anyway.
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export interface ActiveOrgContext {

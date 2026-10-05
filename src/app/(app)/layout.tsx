@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { ToastProvider } from '@/components/ui/Toast';
 import { PastDueBanner } from '@/components/PastDueBanner';
+import { TrialExpiredBanner } from '@/components/TrialExpiredBanner';
 import { LeagueChoiceGate } from '@/components/layout/LeagueChoiceGate';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Sidebar />
             <div className="md:pl-64">
               <PastDueBanner />
+              <TrialExpiredBanner />
               <Header />
               <main className="p-4 md:p-6 pb-24 md:pb-6">
                 {children}

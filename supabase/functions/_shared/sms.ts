@@ -7,8 +7,8 @@
 // If you change any wording here, update the campaign registration in the Twilio
 // console to match — mismatched samples are a documented rejection reason.
 
-export const BRAND_PREFIX = 'Pool League Manager: ';
-export const COMPLIANCE_SUFFIX = ' Reply STOP to opt out, HELP for help.';
+const BRAND_PREFIX = 'Pool League Manager: ';
+const COMPLIANCE_SUFFIX = ' Reply STOP to opt out, HELP for help.';
 
 /** Wraps a message body in the registered brand prefix and opt-out suffix. */
 export function brandMessage(body: string): string {
@@ -21,14 +21,14 @@ export function normalizePhone(phone: string): string {
 }
 
 // Keyword lists as filed on the campaign registration.
-export const OPT_IN_KEYWORDS = ['YES', 'START', 'UNSTOP'];
-export const OPT_OUT_KEYWORDS = [
+const OPT_IN_KEYWORDS = ['YES', 'START', 'UNSTOP'];
+const OPT_OUT_KEYWORDS = [
   'OPTOUT', 'CANCEL', 'END', 'QUIT', 'UNSUBSCRIBE', 'REVOKE', 'STOP', 'STOPALL',
 ];
-export const HELP_KEYWORDS = ['HELP', 'INFO'];
+const HELP_KEYWORDS = ['HELP', 'INFO'];
 
-/** Normalizes an inbound body to a bare keyword for matching. */
-export function asKeyword(body: string | null | undefined): string {
+/** Normalizes an inbound body to a bare keyword for matching. Internal. */
+function asKeyword(body: string | null | undefined): string {
   return (body ?? '').trim().replace(/[.!?]+$/, '').toUpperCase();
 }
 
