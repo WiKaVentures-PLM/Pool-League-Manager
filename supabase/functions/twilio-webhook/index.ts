@@ -1,6 +1,17 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
-import { brandMessage } from '../_shared/sms.ts';
+import {
+  brandMessage,
+  CONSENT_GRANTED_BODY,
+  CONSENT_GRANTED_WITH_HELD_BODY,
+  CONSENT_PROMPT_BODY,
+  HELP_REPLY,
+  isHelp,
+  isOptIn,
+  isOptOut,
+  normalizePhone,
+  OPT_OUT_CONFIRMATION,
+} from '../_shared/sms.ts';
 
 function xmlEscape(text: string): string {
   return text
@@ -9,12 +20,31 @@ function xmlEscape(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
-function twimlResponse(message: string): Response {
-  const body = xmlEscape(brandMessage(message));
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${body}</Message></Response>`;
-  return new Response(twiml, {
+function twiml(body: string): Response {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${xmlEscape(body)}</Message></Response>`;
+  return new Response(xml, {
     headers: { 'Content-Type': 'text/xml' },
   });
+}
+
+/** Branded reply: adds the registered brand prefix and opt-out suffix. */
+function twimlResponse(message: string): Response {
+  return twiml(brandMessage(message));
+}
+
+/** 200 with no message. Used when we must not reply at all. */
+function twimlSilent(): Response {
+  return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
+    headers: { 'Content-Type': 'text/xml' },
+  });
+}
+
+/**
+ * Verbatim reply. Used for the opt-out confirmation (which must not tell the
+ * user to reply STOP again) and the help reply (which carries its own text).
+ */
+function twimlRawResponse(message: string): Response {
+  return twiml(message);
 }
 
 // Chunked base64 — spread crashes on large arrays.
@@ -59,6 +89,110 @@ async function verifyTwilioSignature(
   return signature === expected;
 }
 
+type SupabaseClient = ReturnType<typeof createServiceClient>;
+
+type ConsentStatus = 'pending' | 'granted' | 'revoked';
+
+async function getConsentStatus(
+  supabase: SupabaseClient,
+  phone: string,
+): Promise<ConsentStatus | null> {
+  const { data, error } = await supabase
+    .from('sms_consents')
+    .select('status')
+    .eq('phone', phone)
+    .maybeSingle();
+  if (error) {
+    console.error('Consent lookup failed:', error);
+    return null;
+  }
+  return (data?.status as ConsentStatus | undefined) ?? null;
+}
+
+async function grantConsent(
+  supabase: SupabaseClient,
+  phone: string,
+  messageSid: string,
+  body: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('sms_consents')
+    .upsert({
+      phone,
+      status: 'granted',
+      granted_at: new Date().toISOString(),
+      revoked_at: null,
+      granting_message_sid: messageSid,
+      granting_message_body: body,
+    }, { onConflict: 'phone' });
+  if (error) console.error('Failed to record consent grant:', error);
+}
+
+async function revokeConsent(supabase: SupabaseClient, phone: string): Promise<void> {
+  const { error } = await supabase
+    .from('sms_consents')
+    .upsert({
+      phone,
+      status: 'revoked',
+      revoked_at: new Date().toISOString(),
+    }, { onConflict: 'phone' });
+  if (error) console.error('Failed to record consent revocation:', error);
+}
+
+/** Records that we sent the consent prompt. Never downgrades an existing row. */
+async function recordConsentPrompt(supabase: SupabaseClient, phone: string): Promise<void> {
+  const { error } = await supabase
+    .from('sms_consents')
+    .upsert({
+      phone,
+      status: 'pending',
+      prompt_sent_at: new Date().toISOString(),
+    }, { onConflict: 'phone' });
+  if (error) console.error('Failed to record consent prompt:', error);
+}
+
+/**
+ * Kick the async processor via pg_net. Fire-and-forget: pg_net queues the HTTP
+ * call in Postgres and delivers it in the background, so this returns in
+ * milliseconds and does not block the Twilio response.
+ */
+async function enqueueProcessing(supabase: SupabaseClient, smsId: string): Promise<boolean> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const { error } = await supabase.rpc('enqueue_sms_processing', {
+    p_sms_id: smsId,
+    p_function_url: `${supabaseUrl}/functions/v1/process-sms-score`,
+    p_service_role_key: serviceRoleKey,
+  });
+  if (error) console.error('Failed to enqueue processor:', error);
+  return !error;
+}
+
+/**
+ * Releases scoresheets that arrived before the captain consented. They were
+ * parked rather than dropped, so a captain never has to resend the photo.
+ */
+async function releaseHeldMessages(
+  supabase: SupabaseClient,
+  fromPhone: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('sms_pending_scores')
+    .update({ status: 'queued' })
+    .eq('from_phone', fromPhone)
+    .eq('status', 'awaiting_consent')
+    .select('id');
+  if (error) {
+    console.error('Failed to release held messages:', error);
+    return 0;
+  }
+  const rows = data ?? [];
+  for (const row of rows) {
+    await enqueueProcessing(supabase, row.id as string);
+  }
+  return rows.length;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -93,10 +227,48 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createServiceClient();
+  const phone = normalizePhone(fromPhone);
 
-  // Idempotency: insert queued row keyed on MessageSid. If Twilio retries
-  // (or delivers the same MMS twice), the unique index makes the second
-  // insert fail and we short-circuit without re-triggering processing.
+  // --- Keyword handling, before anything else ------------------------------
+  // Twilio's Advanced Opt-Out intercepts STOP for US long codes before it ever
+  // reaches us, so this path is a backstop that also keeps our own ledger
+  // accurate when it does arrive.
+  if (isOptOut(body)) {
+    await revokeConsent(supabase, phone);
+    return twimlRawResponse(OPT_OUT_CONFIRMATION);
+  }
+
+  if (isHelp(body)) {
+    return twimlRawResponse(HELP_REPLY);
+  }
+
+  const consent = await getConsentStatus(supabase, phone);
+
+  if (isOptIn(body)) {
+    await grantConsent(supabase, phone, messageSid, body);
+    const released = await releaseHeldMessages(supabase, fromPhone);
+    return twimlResponse(
+      released > 0 ? CONSENT_GRANTED_WITH_HELD_BODY : CONSENT_GRANTED_BODY,
+    );
+  }
+
+  // A number that opted out gets no reply at all — not even a consent prompt,
+  // which would both message someone who asked us to stop and resurrect their
+  // ledger row to 'pending'. Only an opt-in keyword (handled above) revives it.
+  if (consent === 'revoked') {
+    console.warn(`Inbound from opted-out number ${phone}; ignoring without reply.`);
+    return twimlSilent();
+  }
+
+  // --- Consent gate --------------------------------------------------------
+  // Carriers require explicit documented consent before we send to a number.
+  // Anything that is not already granted gets parked and prompted instead of
+  // processed, so the scoresheet survives but no un-consented reply goes out.
+  const hasConsent = consent === 'granted';
+
+  // Idempotency: insert row keyed on MessageSid. If Twilio retries (or
+  // delivers the same MMS twice), the unique index makes the second insert
+  // fail and we short-circuit without re-triggering processing.
   const { data: inserted, error: insertError } = await supabase
     .from('sms_pending_scores')
     .insert({
@@ -104,7 +276,7 @@ Deno.serve(async (req: Request) => {
       from_phone: fromPhone,
       body,
       media_url: mediaUrl0,
-      status: 'queued',
+      status: hasConsent ? 'queued' : 'awaiting_consent',
     })
     .select('id')
     .single();
@@ -113,27 +285,20 @@ Deno.serve(async (req: Request) => {
     // 23505 = unique_violation — this is a Twilio retry, already queued.
     // Any other error is real; still respond 200 so Twilio doesn't retry.
     if (insertError.code === '23505') {
-      return twimlResponse('Got it - your scoresheet is already being processed.');
+      return hasConsent
+        ? twimlResponse('Got it - your scoresheet is already being processed.')
+        : twimlResponse(CONSENT_PROMPT_BODY);
     }
     console.error('Failed to enqueue SMS:', insertError);
     return twimlResponse('Sorry, we hit a technical issue. Please try again in a minute.');
   }
 
-  // Kick the async processor via pg_net. Fire-and-forget: pg_net queues
-  // the HTTP call in Postgres and delivers it in the background, so this
-  // returns in milliseconds and does not block the Twilio response.
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const processorUrl = `${supabaseUrl}/functions/v1/process-sms-score`;
+  if (!hasConsent) {
+    await recordConsentPrompt(supabase, phone);
+    return twimlResponse(CONSENT_PROMPT_BODY);
+  }
 
-  const { error: enqueueError } = await supabase.rpc('enqueue_sms_processing', {
-    p_sms_id: inserted.id,
-    p_function_url: processorUrl,
-    p_service_role_key: serviceRoleKey,
-  });
-
-  if (enqueueError) {
-    console.error('Failed to enqueue processor:', enqueueError);
+  if (!await enqueueProcessing(supabase, inserted.id as string)) {
     // Row is queued; a drainer can pick it up later. Still tell the
     // captain something reasonable.
     return twimlResponse('Got your scoresheet - an admin will review it shortly.');

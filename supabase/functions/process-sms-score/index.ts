@@ -1,6 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
-import { brandMessage } from '../_shared/sms.ts';
+import { brandMessage, normalizePhone } from '../_shared/sms.ts';
 
 // Async SMS score processor. Invoked by pg_net from the twilio-webhook
 // after that webhook has already returned 200 to Twilio. Loads the queued
@@ -20,11 +20,32 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, '').slice(-10);
-}
+type SupabaseClient = ReturnType<typeof createServiceClient>;
 
-async function sendSms(to: string, body: string): Promise<void> {
+/**
+ * Sends a reply, but only to a number with recorded consent. The webhook
+ * already gates queueing on consent; this is defence in depth, so that no code
+ * path here can ever message a number that has not explicitly opted in.
+ */
+async function sendSms(
+  supabase: SupabaseClient,
+  to: string,
+  body: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('sms_consents')
+    .select('status')
+    .eq('phone', normalizePhone(to))
+    .maybeSingle();
+  if (error) {
+    console.error('Consent lookup failed; refusing to send:', error);
+    return;
+  }
+  if (data?.status !== 'granted') {
+    console.warn(`Refusing to send to ${normalizePhone(to)}: consent status ${data?.status ?? 'none'}`);
+    return;
+  }
+
   const sid = Deno.env.get('TWILIO_ACCOUNT_SID');
   const token = Deno.env.get('TWILIO_AUTH_TOKEN');
   const from = Deno.env.get('TWILIO_PHONE_NUMBER');
@@ -46,8 +67,6 @@ async function sendSms(to: string, body: string): Promise<void> {
   }
 }
 
-type SupabaseClient = ReturnType<typeof createServiceClient>;
-
 async function fail(
   supabase: SupabaseClient,
   smsId: string,
@@ -59,7 +78,7 @@ async function fail(
     .from('sms_pending_scores')
     .update({ status: 'failed', error_message: errorMessage, processed_at: new Date().toISOString() })
     .eq('id', smsId);
-  if (toPhone) await sendSms(toPhone, captainMessage);
+  if (toPhone) await sendSms(supabase, toPhone, captainMessage);
   return new Response(JSON.stringify({ ok: false, error: errorMessage }), {
     headers: { 'Content-Type': 'application/json' },
   });
@@ -294,7 +313,7 @@ Player names MUST match roster names exactly. Return exactly ${matchesPerNight} 
         processed_at: new Date().toISOString(),
       })
       .eq('id', sms_id);
-    await sendSms(fromPhone, 'We received your scoresheet but had trouble reading it. An admin will review it shortly.');
+    await sendSms(supabase, fromPhone, 'We received your scoresheet but had trouble reading it. An admin will review it shortly.');
     return new Response(JSON.stringify({ ok: false, error: msg }), {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -326,7 +345,7 @@ Player names MUST match roster names exactly. Return exactly ${matchesPerNight} 
           processed_at: new Date().toISOString(),
         })
         .eq('id', sms_id);
-      await sendSms(fromPhone, 'We read your scoresheet but hit a technical issue saving the scores. An admin will review.');
+      await sendSms(supabase, fromPhone, 'We read your scoresheet but hit a technical issue saving the scores. An admin will review.');
       return new Response(JSON.stringify({ ok: false, error: rpcError.message }), {
         headers: { 'Content-Type': 'application/json' },
       });
@@ -353,7 +372,7 @@ Player names MUST match roster names exactly. Return exactly ${matchesPerNight} 
     } else {
       reply = `Scores submitted! Status: ${status}`;
     }
-    await sendSms(fromPhone, reply);
+    await sendSms(supabase, fromPhone, reply);
     return new Response(JSON.stringify({ ok: true, status }), {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -368,7 +387,7 @@ Player names MUST match roster names exactly. Return exactly ${matchesPerNight} 
       processed_at: new Date().toISOString(),
     })
     .eq('id', sms_id);
-  await sendSms(fromPhone, 'Got your scoresheet! An admin will review and confirm the scores shortly.');
+  await sendSms(supabase, fromPhone, 'Got your scoresheet! An admin will review and confirm the scores shortly.');
   return new Response(JSON.stringify({ ok: true, status: 'pending_review' }), {
     headers: { 'Content-Type': 'application/json' },
   });

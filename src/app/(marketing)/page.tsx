@@ -289,6 +289,7 @@ export default function LandingPage() {
             <Link href="/pricing" className="hover:text-slate-200 transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-slate-200 transition-colors">Sign In</Link>
             <Link href="/signup" className="hover:text-slate-200 transition-colors">Sign Up</Link>
+            <Link href="/sms" className="hover:text-slate-200 transition-colors">Text Scores</Link>
             <Link href="/privacy" className="hover:text-slate-200 transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-slate-200 transition-colors">Terms</Link>
           </div>
