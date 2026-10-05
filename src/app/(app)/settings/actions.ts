@@ -56,7 +56,6 @@ export async function updateSettings(formData: FormData) {
       play_days: playDays,
       frequency: (formData.get('frequency') as string) || 'weekly',
       position_nights: parseInt(formData.get('position_nights') as string) || 2,
-      position_night_placement: (formData.get('position_night_placement') as string) || 'half',
       bye_points: (formData.get('bye_points') as string) || 'win',
       times_to_play: parseInt(formData.get('times_to_play') as string) || 2,
     })

@@ -41,7 +41,11 @@ export interface ScheduleConfig {
   frequency: 'weekly' | 'biweekly';
   timesToPlay: number; // 1 = single round-robin, 2 = home & away, etc.
   positionNights: number; // 0, 1, 2, 3
-  positionNightPlacement: 'half' | 'end' | 'start';
+  /**
+   * Total number of position nights for the whole season. They are spread
+   * evenly, with the last one always falling at the end of the season:
+   * 1 -> end; 2 -> middle and end; 3 -> thirds and end; and so on.
+   */
 }
 
 const BYE_ID = 'BYE';
@@ -220,8 +224,30 @@ function generatePositionNightMatches(
 /**
  * Main schedule generation function.
  */
+/**
+ * Evenly spaced insertion points for N position nights across M match rounds,
+ * expressed as "insert after this many match rounds". The last entry is always
+ * M, so a position night always closes the season.
+ *
+ *   N=1, M=14 -> [14]            end
+ *   N=2, M=14 -> [7, 14]         middle, end
+ *   N=3, M=14 -> [5, 9, 14]      thirds, end
+ *   N=4, M=14 -> [4, 7, 11, 14]  quarters, end
+ *
+ * Exported so the behaviour can be unit-checked without generating a schedule.
+ */
+export function positionNightOffsets(positionNights: number, matchRounds: number): number[] {
+  if (positionNights <= 0 || matchRounds <= 0) return [];
+  const offsets: number[] = [];
+  for (let k = 1; k <= positionNights; k++) {
+    const raw = Math.round((k * matchRounds) / positionNights);
+    offsets.push(Math.min(Math.max(raw, 1), matchRounds));
+  }
+  return offsets;
+}
+
 export function generateSchedule(config: ScheduleConfig): ScheduleWeek[] {
-  const { teams, startDate, playDays, frequency, timesToPlay, positionNights, positionNightPlacement } = config;
+  const { teams, startDate, playDays, frequency, timesToPlay, positionNights } = config;
 
   if (teams.length < 2) return [];
   if (playDays.length === 0) return [];
@@ -235,34 +261,15 @@ export function generateSchedule(config: ScheduleConfig): ScheduleWeek[] {
   const baseRounds = generateCircleRounds(teamCount);
   const roundsPerHalf = baseRounds.length; // n-1 rounds per half
 
-  const weeks: ScheduleWeek[] = [];
-  let currentDate = new Date(startDate + 'T12:00:00');
-  let weekNumber = 1;
+  type PlannedWeek = { half: number; matches: ScheduleMatch[] };
 
-  // Generate halves
+  // 1. Build every match round first. Position nights are placed afterwards, so
+  //    they can be spread across the whole season instead of being bolted onto
+  //    each half — which is what made "2 position nights" produce 4.
+  const planned: PlannedWeek[] = [];
+
   for (let half = 1; half <= timesToPlay; half++) {
-    // Position nights at start of each half (except first)
-    if (positionNightPlacement === 'start' && half > 1 && positionNights > 0) {
-      for (let pn = 0; pn < positionNights; pn++) {
-        if (weekNumber > 1) {
-          currentDate = getNextPlayDate(currentDate, playDays, frequency, false);
-        }
-        const posMatches = generatePositionNightMatches(teamIds, teams);
-        weeks.push({
-          week: weekNumber++,
-          date: formatDate(currentDate),
-          half,
-          matches: posMatches,
-        });
-      }
-    }
-
-    // Regular round-robin rounds
     for (let r = 0; r < roundsPerHalf; r++) {
-      if (weekNumber > 1) {
-        currentDate = getNextPlayDate(currentDate, playDays, frequency, false);
-      }
-
       const roundPairs = baseRounds[r];
       const matches: ScheduleMatch[] = roundPairs.map(([homeIdx, awayIdx]) => {
         let homeId = allIds[homeIdx];
@@ -291,45 +298,36 @@ export function generateSchedule(config: ScheduleConfig): ScheduleWeek[] {
         };
       });
 
-      // Resolve venue conflicts
-      const resolved = resolveVenueConflicts(matches, teams);
-
-      weeks.push({
-        week: weekNumber++,
-        date: formatDate(currentDate),
-        half,
-        matches: resolved,
-      });
-    }
-
-    // Position nights after each half
-    if (positionNightPlacement === 'half' && positionNights > 0) {
-      for (let pn = 0; pn < positionNights; pn++) {
-        currentDate = getNextPlayDate(currentDate, playDays, frequency, false);
-        const posMatches = generatePositionNightMatches(teamIds, teams);
-        weeks.push({
-          week: weekNumber++,
-          date: formatDate(currentDate),
-          half,
-          matches: posMatches,
-        });
-      }
+      planned.push({ half, matches: resolveVenueConflicts(matches, teams) });
     }
   }
 
-  // Position nights at end of season
-  if (positionNightPlacement === 'end' && positionNights > 0) {
-    for (let pn = 0; pn < positionNights; pn++) {
+  // 2. Insert the position nights, back to front so earlier offsets stay valid
+  //    against the original match-round numbering.
+  const offsets = positionNightOffsets(positionNights, planned.length);
+  for (let i = offsets.length - 1; i >= 0; i--) {
+    const offset = offsets[i];
+    planned.splice(offset, 0, {
+      // Attribute it to the half whose play it follows.
+      half: planned[offset - 1].half,
+      matches: generatePositionNightMatches(teamIds, teams),
+    });
+  }
+
+  // 3. Lay the weeks onto play dates in order.
+  const weeks: ScheduleWeek[] = [];
+  let currentDate = new Date(startDate + 'T12:00:00');
+  planned.forEach((plan, index) => {
+    if (index > 0) {
       currentDate = getNextPlayDate(currentDate, playDays, frequency, false);
-      const posMatches = generatePositionNightMatches(teamIds, teams);
-      weeks.push({
-        week: weekNumber++,
-        date: formatDate(currentDate),
-        half: timesToPlay,
-        matches: posMatches,
-      });
     }
-  }
+    weeks.push({
+      week: index + 1,
+      date: formatDate(currentDate),
+      half: plan.half,
+      matches: plan.matches,
+    });
+  });
 
   return weeks;
 }

@@ -107,7 +107,6 @@ export function OnboardingWizard() {
       frequency: 'weekly',
       timesToPlay: 2,
       positionNights: 0,
-      positionNightPlacement: 'half',
     });
 
     setSchedule(weeks);

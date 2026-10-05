@@ -45,7 +45,6 @@ export interface LeagueSettings {
   play_days: number[];
   frequency: 'weekly' | 'biweekly';
   position_nights: number;
-  position_night_placement: 'half' | 'end' | 'start';
   bye_points: 'win' | 'none';
   times_to_play: number;
   created_at: string;

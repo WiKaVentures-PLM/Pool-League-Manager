@@ -13,6 +13,14 @@ import type { Team } from '@/types';
 import { ArrowLeft, Calendar, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
+function fmtPreviewDate(date: string) {
+  return new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 export default function GenerateSchedulePage() {
   const router = useRouter();
   const { membership, organization } = useAuth();
@@ -27,6 +35,10 @@ export default function GenerateSchedulePage() {
 
   const supabase = createClient();
   const isAdmin = membership?.role === 'admin';
+
+  const positionNightWeeks = (preview ?? [])
+    .filter(w => w.matches.some(m => m.isPositionNight))
+    .map(w => w.week);
 
   useEffect(() => {
     async function load() {
@@ -67,7 +79,6 @@ export default function GenerateSchedulePage() {
       frequency: settings?.frequency || 'weekly',
       timesToPlay: settings?.times_to_play || 2,
       positionNights: settings?.position_nights || 0,
-      positionNightPlacement: settings?.position_night_placement || 'half',
     });
 
     setPreview(weeks);
@@ -179,9 +190,26 @@ export default function GenerateSchedulePage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-800">
-                Preview ({preview.length} weeks)
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">
+                  Preview ({preview.length} weeks)
+                </h2>
+                {/* The season span that saving will record, and where the
+                    position nights landed — both worth seeing before committing. */}
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {fmtPreviewDate(preview[0].date)} &ndash;{' '}
+                  {fmtPreviewDate(preview[preview.length - 1].date)}
+                  {positionNightWeeks.length > 0 && (
+                    <>
+                      {' · '}
+                      {positionNightWeeks.length} position night
+                      {positionNightWeeks.length === 1 ? '' : 's'} (week
+                      {positionNightWeeks.length === 1 ? ' ' : 's '}
+                      {positionNightWeeks.join(', ')})
+                    </>
+                  )}
+                </p>
+              </div>
               <Button onClick={handleSave} loading={saving}>
                 Save Schedule
               </Button>

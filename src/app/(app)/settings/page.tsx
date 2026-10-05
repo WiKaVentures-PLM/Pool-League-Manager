@@ -141,28 +141,24 @@ export default function SettingsPage() {
                 ]}
               />
 
+              {/*
+                This is the total for the season, and it is what you get. They
+                are spread evenly with the last one always closing the season:
+                1 = end; 2 = middle and end; 3 = thirds and end. The old
+                "placement" control is gone — it meant "per half", so asking for
+                2 quietly produced 4.
+              */}
               <Select
                 id="position_nights"
                 name="position_nights"
-                label="Position Nights"
+                label="Position Nights (total for the season)"
                 defaultValue={settings?.position_nights?.toString() || '2'}
                 options={[
                   { value: '0', label: 'None' },
-                  { value: '1', label: '1' },
-                  { value: '2', label: '2' },
-                  { value: '3', label: '3' },
-                ]}
-              />
-
-              <Select
-                id="position_night_placement"
-                name="position_night_placement"
-                label="Position Night Placement"
-                defaultValue={settings?.position_night_placement || 'half'}
-                options={[
-                  { value: 'half', label: 'After each half' },
-                  { value: 'end', label: 'End of season' },
-                  { value: 'start', label: 'Start of season' },
+                  { value: '1', label: '1 — end of season' },
+                  { value: '2', label: '2 — middle and end' },
+                  { value: '3', label: '3 — evenly spaced, last at the end' },
+                  { value: '4', label: '4 — evenly spaced, last at the end' },
                 ]}
               />
 

@@ -79,7 +79,23 @@ export async function saveSchedule(seasonId: string, weeks: ScheduleWeek[]) {
     return { error: error.message };
   }
 
+  // Keep the season's span in step with the schedule it actually has. Before
+  // this, seasons could sit with null start_date/end_date even once a full
+  // schedule existed, leaving /history and standings with no date range to
+  // show. Derived from the saved weeks so the two can never disagree.
+  const dates = weeks.map(w => w.date).sort();
+  if (dates.length > 0) {
+    const { error: seasonError } = await supabase
+      .from('seasons')
+      .update({ start_date: dates[0], end_date: dates[dates.length - 1] })
+      .eq('id', seasonId)
+      .eq('org_id', orgId);
+    // Non-fatal: the schedule saved fine, the span is cosmetic.
+    if (seasonError) console.error('Failed to update season span:', seasonError);
+  }
+
   revalidatePath('/schedule');
+  revalidatePath('/history');
   return { error: null };
 }
 
