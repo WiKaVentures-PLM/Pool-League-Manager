@@ -130,23 +130,76 @@ Deno.serve(async (req: Request) => {
       'Sorry, your phone number is not registered with any league. Contact your league admin.');
   }
 
-  // 2. Org membership.
-  const { data: membership } = await supabase
+  // 2. Org memberships. A captain can belong to more than one league, so this
+  // must not assume a single row — .maybeSingle() here used to error out and
+  // silently break SMS for anyone in two leagues. Resolve instead by finding
+  // where they are actually captain of a team in an active season.
+  const { data: memberships } = await supabase
     .from('memberships')
     .select('org_id')
-    .eq('profile_id', profile.id)
-    .maybeSingle();
-  if (!membership) {
+    .eq('profile_id', profile.id);
+  if (!memberships || memberships.length === 0) {
     return await fail(supabase, sms_id, fromPhone, 'No organization membership found',
       'Your account is not linked to any league. Contact your league admin.');
   }
-  await supabase.from('sms_pending_scores').update({ org_id: membership.org_id }).eq('id', sms_id);
 
-  // 2b. Subscription tier + status.
+  // 3 + 4. Every (org, active season, captained team) this profile matches.
+  // An org with more than one active season is also tolerated by taking the
+  // most recent, rather than erroring.
+  const candidates: Array<{
+    orgId: string;
+    seasonId: string;
+    team: { id: string; name: string };
+  }> = [];
+  for (const m of memberships) {
+    const orgId = m.org_id as string;
+    const { data: seasons } = await supabase
+      .from('seasons')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const season = seasons?.[0];
+    if (!season) continue;
+
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('id, name')
+      .eq('captain_profile_id', profile.id)
+      .eq('org_id', orgId)
+      .eq('season_id', season.id)
+      .limit(1);
+    const team = teams?.[0];
+    if (!team) continue;
+
+    candidates.push({
+      orgId,
+      seasonId: season.id as string,
+      team: { id: team.id as string, name: team.name as string },
+    });
+  }
+
+  if (candidates.length === 0) {
+    return await fail(supabase, sms_id, fromPhone, 'Not a team captain in any active season',
+      'You are not listed as a team captain for the current season.');
+  }
+  if (candidates.length > 1) {
+    // Nothing in an MMS tells us which league it belongs to, and guessing could
+    // write scores to the wrong match.
+    return await fail(supabase, sms_id, fromPhone,
+      `Captain of teams in ${candidates.length} leagues with active seasons; cannot disambiguate by SMS`,
+      'You captain teams in more than one league, so we cannot tell which match this scoresheet is for. Please submit these scores on the web.');
+  }
+
+  const { orgId, seasonId, team } = candidates[0];
+  await supabase.from('sms_pending_scores').update({ org_id: orgId }).eq('id', sms_id);
+
+  // 4b. Subscription tier + status for the resolved league.
   const { data: org } = await supabase
     .from('organizations')
     .select('subscription_tier, subscription_status')
-    .eq('id', membership.org_id)
+    .eq('id', orgId)
     .maybeSingle();
   const SMS_TIERS = ['trial', 'pro', 'premium'];
   if (!org || !SMS_TIERS.includes(org.subscription_tier || '')) {
@@ -159,38 +212,14 @@ Deno.serve(async (req: Request) => {
       'Your league\'s subscription is inactive. Contact your league admin.');
   }
 
-  // 3. Active season.
-  const { data: season } = await supabase
-    .from('seasons')
-    .select('id')
-    .eq('org_id', membership.org_id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (!season) {
-    return await fail(supabase, sms_id, fromPhone, 'No active season found',
-      'No active season found for your league.');
-  }
-
-  // 4. Captain's team.
-  const { data: team } = await supabase
-    .from('teams')
-    .select('id, name')
-    .eq('captain_profile_id', profile.id)
-    .eq('org_id', membership.org_id)
-    .eq('season_id', season.id)
-    .maybeSingle();
-  if (!team) {
-    return await fail(supabase, sms_id, fromPhone, 'Not a team captain this season',
-      'You are not listed as a team captain for the current season.');
-  }
   await supabase.from('sms_pending_scores').update({ team_id: team.id }).eq('id', sms_id);
 
   // 5. Next unfinished match for this team.
   const { data: scheduleEntries } = await supabase
     .from('schedule')
     .select('*')
-    .eq('org_id', membership.org_id)
-    .eq('season_id', season.id)
+    .eq('org_id', orgId)
+    .eq('season_id', seasonId)
     .eq('is_bye', false)
     .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`)
     .order('date', { ascending: false });
@@ -201,8 +230,8 @@ Deno.serve(async (req: Request) => {
   const { data: existingMatches } = await supabase
     .from('matches')
     .select('schedule_id')
-    .eq('org_id', membership.org_id)
-    .eq('season_id', season.id);
+    .eq('org_id', orgId)
+    .eq('season_id', seasonId);
   const completedIds = new Set((existingMatches || []).map((m: { schedule_id: string }) => m.schedule_id));
   const targetSchedule = scheduleEntries.find(s => !completedIds.has(s.id));
   if (!targetSchedule) {
@@ -240,8 +269,8 @@ Deno.serve(async (req: Request) => {
 
   // 8. Rosters + team names.
   const [homeRosterRes, awayRosterRes, homeTeamRes, awayTeamRes] = await Promise.all([
-    supabase.from('players').select('name').eq('team_id', targetSchedule.home_team_id).eq('org_id', membership.org_id),
-    supabase.from('players').select('name').eq('team_id', targetSchedule.away_team_id).eq('org_id', membership.org_id),
+    supabase.from('players').select('name').eq('team_id', targetSchedule.home_team_id).eq('org_id', orgId),
+    supabase.from('players').select('name').eq('team_id', targetSchedule.away_team_id).eq('org_id', orgId),
     supabase.from('teams').select('name').eq('id', targetSchedule.home_team_id).maybeSingle(),
     supabase.from('teams').select('name').eq('id', targetSchedule.away_team_id).maybeSingle(),
   ]);
@@ -256,7 +285,7 @@ Deno.serve(async (req: Request) => {
   const { data: settings } = await supabase
     .from('league_settings')
     .select('matches_per_night, best_of')
-    .eq('org_id', membership.org_id)
+    .eq('org_id', orgId)
     .maybeSingle();
   const matchesPerNight = settings?.matches_per_night || 5;
   const bestOf = settings?.best_of || 3;
@@ -325,8 +354,8 @@ Player names MUST match roster names exactly. Return exactly ${matchesPerNight} 
     const awayScore = parsedResult.matchups.filter(m => m.away_wins > m.home_wins).length;
 
     const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_scores', {
-      p_org_id: membership.org_id,
-      p_season_id: season.id,
+      p_org_id: orgId,
+      p_season_id: seasonId,
       p_schedule_id: targetSchedule.id,
       p_team_id: team.id,
       p_submitted_by: profile.id,
